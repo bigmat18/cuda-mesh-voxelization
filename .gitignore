@@ -1,0 +1,32 @@
+# Minimal .gitignore for C++ and CUDA
+
+# Build output directories
+/build/
+/bin/
+/obj/
+
+# Compiled binaries and libraries
+*.exe
+*.out
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# Object files
+*.o
+*.obj
+
+# CUDA-specific build artifacts
+*.ptx
+*.cubin
+
+# IDE & Editor directories
+/.vs/
+/.vscode/
+/.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
