@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iterator>
 #include <ostream>
+#include <string>
 #include <vector>
 
 #include "cuda_utils.cuh"
@@ -19,6 +20,13 @@ int main(int argc, char **argv) {
         std::cout << "Error in mesh loading" << std::endl;
         return -1;
     }
+
+    if(!ExportMesh("assets/my_torus.obj", faces, vertices)) {
+        std::cout << "Error in mesh saving" << std::endl;
+        return -1;
+    }
+
+
 
     return 0;
 }
