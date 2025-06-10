@@ -4,6 +4,7 @@
 /build/
 /bin/
 /obj/
+.cache/
 
 # Compiled binaries and libraries
 *.exe
