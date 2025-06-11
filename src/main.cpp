@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "cuda_utils.cuh"
+#include "voxels_grid.h"
 #include "mesh_io.h"
 
 int main(int argc, char **argv) {
@@ -26,7 +27,15 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+    VoxelsGrid8bit v(2);
+    v(4,1,0) = true;
 
-
+    for(int i = 0 ; i < v.SideSize() ; ++i) {
+        for(int j = 0 ; j < v.SideSize() ; ++j) {
+            for(int k = 0 ; k < v.SideSize() ; ++k) {
+                LOG_INFO("%d", static_cast<bool>(v(i, j, k)));
+            }
+        }
+    }
     return 0;
 }
