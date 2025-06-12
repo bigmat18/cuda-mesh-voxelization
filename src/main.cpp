@@ -29,8 +29,8 @@ int main(int argc, char **argv) {
 
     VoxelsGrid8bit v(2);
     v(0,0,0) = true;
-    v(1,0,0) = true;
-    v(0,1,0) = true;
+    //v(1,0,0) = true;
+    v(1,1,1) = true;
 
     for(int i = 0 ; i < v.SideSize() ; ++i) {
         for(int j = 0 ; j < v.SideSize() ; ++j) {

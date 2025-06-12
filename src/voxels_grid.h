@@ -10,8 +10,10 @@
 #include <memory>
 #include <span>
 #include <sys/types.h>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 template<typename T, typename... Types>
@@ -108,17 +110,35 @@ void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
                     std::unordered_map<uint, std::pair<uint, Vertex>> &vertices_marked) 
 {
     constexpr uint plane_index = (!Y * 2) + !X;
+    const uint VERTEX_SIZE = grid.SideSize() + 1;
     
-    uint faceX = X ? voxelX : voxelZ;
-    uint faceY = Y ? voxelY : voxelZ;
-    uint faceZ = X ? (Y ? (voxelZ + front) : (voxelY + front)) : voxelX + front;
+    uint XX = X ? voxelX : voxelZ;
+    uint YY = Y ? voxelY : voxelZ;
+    uint ZZ = X ? (Y ? (voxelZ + front) : (voxelY + front)) : voxelX + front;
     
-    uint face_index = (faceZ * grid.SideSize() * grid.SideSize()) + (faceY * grid.SideSize()) + faceX;
+    uint face_index = (ZZ * grid.SideSize() * grid.SideSize()) + (YY * grid.SideSize()) + XX;
 
     if(faces_marked[plane_index][face_index])
         return;
 
     faces_marked[plane_index][face_index] = true;
+
+    for (uint v = 0; v < 2; ++v) {
+        for (uint u = 0; u < 2; ++u) {
+            uint Vx = voxelX + (!X * front) + (X * u);
+            uint Vy = voxelY + (!Y * front) + (Y * v);
+            uint Vz = voxelZ + (!Z * front) + (Z * ((X * v) + (Y * u)));
+
+            uint vertex_index = (Vz * VERTEX_SIZE * VERTEX_SIZE) + (Vy * VERTEX_SIZE) + Vx;
+            auto[vertex, is_new] = vertices_marked.try_emplace(vertex_index, 
+                std::piecewise_construct, 
+                std::forward_as_tuple(vertices.size()), 
+                std::forward_as_tuple(Vx, Vy,Vz, 0,0,0,0)
+            );
+
+
+        }
+    }
 
 }
 
@@ -197,7 +217,9 @@ bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, s
        count += faces_marked[2][i];
     }
 
-    LOG_INFO("%d", count);
+    LOG_INFO("Faces counted: %d", count);
+
+    LOG_INFO("Vertices counted: %ld", vertices_marked.size());
 
     return true;
 }
