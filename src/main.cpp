@@ -17,25 +17,31 @@ int main(int argc, char **argv) {
 
     std::vector<uint32_t> faces;
     std::vector<Vertex> vertices;
-    if(!ImportMesh(std::string(argv[1]), faces, vertices)) {
-        std::cout << "Error in mesh loading" << std::endl;
-        return -1;
-    }
+    /*if(!ImportMesh(std::string(argv[1]), faces, vertices)) {*/
+        /*std::cout << "Error in mesh loading" << std::endl;*/
+        /*return -1;*/
+    /*}*/
 
-    if(!ExportMesh("assets/my_torus.obj", faces, vertices)) {
-        std::cout << "Error in mesh saving" << std::endl;
-        return -1;
-    }
+    /*if(!ExportMesh("assets/my_torus.obj", faces, vertices)) {*/
+        /*std::cout << "Error in mesh saving" << std::endl;*/
+        /*return -1;*/
+    /*}*/
 
     VoxelsGrid8bit v(2);
-    v(4,1,0) = true;
+    v(0,0,0) = true;
+    v(1,0,0) = true;
+    v(0,1,0) = true;
 
     for(int i = 0 ; i < v.SideSize() ; ++i) {
         for(int j = 0 ; j < v.SideSize() ; ++j) {
             for(int k = 0 ; k < v.SideSize() ; ++k) {
-                LOG_INFO("%d", static_cast<bool>(v(i, j, k)));
+                std::cout << static_cast<bool>(v(k, j, i)) << " ";
             }
+            std::cout << std::endl;
         }
+        std::cout << std::endl << std::endl;
     }
+
+    VoxelsGridToMesh<uint8_t>(v, faces, vertices);
     return 0;
 }

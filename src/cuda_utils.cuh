@@ -2,7 +2,7 @@
 #include <string>
 #include <chrono>
 #include <iomanip>
-#include <iostream>
+#include <cuda_runtime.h>
 
 #ifndef CUDA_UTILS
 #define CUDA_UTILS
