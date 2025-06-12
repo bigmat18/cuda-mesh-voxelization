@@ -212,22 +212,6 @@ bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, s
         }
     }
 
-    int count = 0;
-
-    for (int i = 0; i < max_faces_num; i++) {
-       count += faces_marked[0][i];
-    }
-    for (int i = 0; i < max_faces_num; i++) {
-       count += faces_marked[1][i];
-    }
-    for (int i = 0; i < max_faces_num; i++) {
-       count += faces_marked[2][i];
-    }
-
-    LOG_INFO("Faces counted: %d", count);
-
-    LOG_INFO("Vertices counted: %ld", vertices_marked.size());
-
     for(uint i = 0; i < vertices.size(); ++i) {
         std::cout << i << ": " << vertices[i].X << " " << vertices[i].Y << " " << vertices[i].Z << std::endl;
     }
