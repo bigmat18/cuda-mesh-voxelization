@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <span>
 #include <sys/types.h>
@@ -89,7 +90,7 @@ public:
 
     inline size_t SideSize() const { return mSideSize; }
 
-    inline size_t VoxelSide() const { return mVoxelSize; }
+    inline size_t VoxelSize() const { return mVoxelSize; }
 };
 
 using VoxelsGrid8bit = VoxelsGrid<uint8_t>;
@@ -123,6 +124,8 @@ void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
 
     faces_marked[plane_index][face_index] = true;
 
+
+    std::array<uint, 4> final_vertex_index;
     for (uint v = 0; v < 2; ++v) {
         for (uint u = 0; u < 2; ++u) {
             uint Vx = voxelX + (!X * front) + (X * u);
@@ -130,16 +133,20 @@ void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
             uint Vz = voxelZ + (!Z * front) + (Z * ((X * v) + (Y * u)));
 
             uint vertex_index = (Vz * VERTEX_SIZE * VERTEX_SIZE) + (Vy * VERTEX_SIZE) + Vx;
-            auto[vertex, is_new] = vertices_marked.try_emplace(vertex_index, 
+            auto [vertex, is_new] = vertices_marked.try_emplace(vertex_index, 
                 std::piecewise_construct, 
                 std::forward_as_tuple(vertices.size()), 
-                std::forward_as_tuple(Vx, Vy,Vz, 0,0,0,0)
+                std::forward_as_tuple(Vx * grid.VoxelSize(), Vy * grid.VoxelSize(), Vz * grid.VoxelSize(), 0.f, 0.f, 0.f, 0xFFFFFFFF)
             );
+            if(is_new)
+                vertices.push_back(vertex->second.second);
 
-
+            final_vertex_index[u + (v * 2)] = vertex->second.first;
         }
     }
 
+    faces.insert(faces.end(), {final_vertex_index[0], final_vertex_index[2], final_vertex_index[1]});
+    faces.insert(faces.end(), {final_vertex_index[1], final_vertex_index[2], final_vertex_index[3]});
 }
 
 template <typename T, bool front = false>
@@ -220,6 +227,14 @@ bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, s
     LOG_INFO("Faces counted: %d", count);
 
     LOG_INFO("Vertices counted: %ld", vertices_marked.size());
+
+    for(uint i = 0; i < vertices.size(); ++i) {
+        std::cout << i << ": " << vertices[i].X << " " << vertices[i].Y << " " << vertices[i].Z << std::endl;
+    }
+
+    for (uint i=0; i< faces.size(); i+= 3) {
+        std::cout << faces[i] << " " << faces[i + 1] << " " << faces[i + 2] << std::endl;
+    }
 
     return true;
 }

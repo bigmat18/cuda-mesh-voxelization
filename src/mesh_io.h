@@ -20,6 +20,7 @@
 struct Vertex {
   float X, Y, Z;
   float nX, nY, nZ;
+  uint32_t color;
 
   /* Set color from float to uint32_t format */
   inline void SetColor(float r, float g, float b, float a) {
@@ -39,7 +40,6 @@ struct Vertex {
 
   inline uint8_t A() const { return color & 0xFF; }
 
-  uint32_t color;
 };
 
 

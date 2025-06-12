@@ -9,6 +9,14 @@
 #include "voxels_grid.h"
 #include "mesh_io.h"
 
+#include <random>
+
+bool random_bool() {
+    static std::mt19937 engine(std::random_device{}());
+    static std::bernoulli_distribution distribution(0.5);
+    return distribution(engine);
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr, "Need a mesh parameter\n");
@@ -22,26 +30,23 @@ int main(int argc, char **argv) {
         /*return -1;*/
     /*}*/
 
-    /*if(!ExportMesh("assets/my_torus.obj", faces, vertices)) {*/
-        /*std::cout << "Error in mesh saving" << std::endl;*/
-        /*return -1;*/
-    /*}*/
+    VoxelsGrid8bit grid(8);
 
-    VoxelsGrid8bit v(2);
-    v(0,0,0) = true;
-    //v(1,0,0) = true;
-    v(1,1,1) = true;
-
-    for(int i = 0 ; i < v.SideSize() ; ++i) {
-        for(int j = 0 ; j < v.SideSize() ; ++j) {
-            for(int k = 0 ; k < v.SideSize() ; ++k) {
-                std::cout << static_cast<bool>(v(k, j, i)) << " ";
+    for(int i = 0 ; i < grid.SideSize() ; ++i) {
+        for(int j = 0 ; j < grid.SideSize() ; ++j) {
+            for(int k = 0 ; k < grid.SideSize() ; ++k) {
+                grid(k,j,i) = random_bool();
             }
-            std::cout << std::endl;
         }
-        std::cout << std::endl << std::endl;
     }
 
-    VoxelsGridToMesh<uint8_t>(v, faces, vertices);
+    VoxelsGridToMesh<uint8_t>(grid, faces, vertices);
+
+    if(!ExportMesh("assets/test.obj", faces, vertices)) {
+        std::cout << "Error in mesh saving" << std::endl;
+        return -1;
+    }
+
+
     return 0;
 }
