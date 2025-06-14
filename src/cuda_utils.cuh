@@ -7,18 +7,24 @@
 #ifndef CUDA_UTILS
 #define CUDA_UTILS
 
-inline std::string getCurrentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %X");
-    return ss.str();
+__host__ __device__ inline const char* getCurrentTimestamp() {
+    #ifndef __CUDA_ARCH__
+        static char timestamp_buffer[64];
+
+        auto now = std::chrono::system_clock::now();
+        auto in_time_t = std::chrono::system_clock::to_time_t(now);
+        std::strftime(timestamp_buffer, sizeof(timestamp_buffer),
+                "%Y-%m-%d %X", std::localtime(&in_time_t));
+        return timestamp_buffer;
+    #else
+        return "DEVICE";
+    #endif
 }
 
 #define LOG_INTERNAL(level_str, format, ...)                               \
 {                                                                          \
-    fprintf(stderr, "[%s] [%s] [%s:%d] " format "\n",                      \
-            getCurrentTimestamp().c_str(), level_str, __FILE__, __LINE__,  \
+    printf("[%s] [%s] [%s:%d] " format "\n",                               \
+            getCurrentTimestamp(), level_str, __FILE__, __LINE__,  \
             ##__VA_ARGS__);                                                \
 }
 

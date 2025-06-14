@@ -13,18 +13,18 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+file(GLOB_RECURSE CPP_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE CU_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cu")
 
-set(CMAKE_CUDA_STANDARD 20)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+add_executable(main ${CPP_FILES} ${CU_FILES})
+set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CUDA)
 
-file(GLOB_RECURSE SOURCE_FILES "${SRC_DIR}/*.cpp" "${SRC_DIR}/*.cu")
-
-add_executable(main ${SOURCE_FILES})
-target_link_libraries(main) 
 target_include_directories(main PUBLIC "${LIBS_DIR}")
 
+target_compile_features(main PRIVATE cxx_std_23)
+target_compile_features(main PRIVATE cuda_std_20)
+
 target_compile_options(main PRIVATE
-    $<$<CONFIG:Debug>:-O0>
+    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    $<$<CONFIG:Debug>:-O0 --expt-relaxed-constexpr>
 )
