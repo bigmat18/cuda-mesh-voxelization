@@ -18,39 +18,33 @@
 #include "cuda_utils.cuh"
 
 struct Vertex {
-  float X, Y, Z;
-  float nX, nY, nZ;
-  uint32_t color;
+    float X, Y, Z;
+    float nX, nY, nZ;
+    uint32_t color;
 
-  /* Set color from float to uint32_t format */
-  inline void SetColor(float r, float g, float b, float a) {
-    color = static_cast<uint32_t>(
-                    (static_cast<uint8_t>(std::round(r * 255)) << 24) |
-                    (static_cast<uint8_t>(std::round(g * 255)) << 16) |
-                    (static_cast<uint8_t>(std::round(b * 255)) << 8)  | 
-                    (static_cast<uint8_t>(std::round(a * 255)))
-            );
-  }
+    Vertex(float x, float y, float z, float nx, float ny, float nz, uint32_t c)
+      : X(x), Y(y), Z(z), nX(nx), nY(ny), nZ(nz), color(c) {}
 
-  inline uint8_t R() const { return (color >> 24) & 0xFF; }
+    Vertex() = default;
 
-  inline uint8_t G() const { return (color >> 16) & 0xFF; }
-
-  inline uint8_t B() const { return (color >> 8) & 0xFF; }
-
-  inline uint8_t A() const { return color & 0xFF; }
-
-};
-
-
-struct Faces {
-    std::vector<uint32_t> faces;
-    std::vector<Vertex> vertices;
-
-    inline size_t Size() const 
-    {
-        return faces.size() / 3;
+    /* Set color from float to uint32_t format */
+    inline void SetColor(float r, float g, float b, float a) {
+      color = static_cast<uint32_t>(
+                      (static_cast<uint8_t>(std::round(r * 255)) << 24) |
+                      (static_cast<uint8_t>(std::round(g * 255)) << 16) |
+                      (static_cast<uint8_t>(std::round(b * 255)) << 8)  | 
+                      (static_cast<uint8_t>(std::round(a * 255)))
+              );
     }
+
+    inline uint8_t R() const { return (color >> 24) & 0xFF; }
+
+    inline uint8_t G() const { return (color >> 16) & 0xFF; }
+
+    inline uint8_t B() const { return (color >> 8) & 0xFF; }
+
+    inline uint8_t A() const { return color & 0xFF; }
+
 };
 
 bool ImportMesh(const std::string filename, std::vector<uint32_t> &faces, std::vector<Vertex> &vertices) 

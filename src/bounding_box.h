@@ -1,13 +1,14 @@
 #include "mesh_io.h"
 #include <functional>
 #include <optional>
+#include <span>
 #include <utility>
-#include <vector>
+
 #ifndef BOUNDING_BOX_H
 
 
-template<bool device = false>
-float CalculateBoundingBox(std::vector<Vertex>& vertices, 
+template<bool device = false> __host__ __device__ 
+float CalculateBoundingBox(std::span<Vertex> vertices,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxX = std::nullopt,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxY = std::nullopt,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxZ = std::nullopt)
@@ -30,10 +31,12 @@ float CalculateBoundingBox(std::vector<Vertex>& vertices,
             if(vertices[i].Z < minZ) minZ = vertices[i].Z;
             else if(vertices[i].Z > maxZ) maxZ= vertices[i].Z;
         }
-
+        
+        #ifdef DEBUG 
         LOG_INFO("minX: %f, maxX: %f", minX, maxX);
         LOG_INFO("minY: %f, maxY: %f", minY, maxY); 
         LOG_INFO("minZ: %f, maxZ: %f", minZ, maxZ);
+        #endif // DEBUG
 
         if (minmaxX) minmaxX->get() = {minX, maxX};
         if (minmaxY) minmaxY->get() = {minY, maxY};

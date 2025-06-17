@@ -18,13 +18,13 @@ void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
                     std::unordered_map<uint, std::pair<uint, Vertex>> &vertices_marked) 
 {
     constexpr uint plane_index = (!Y * 2) + !X;
-    const uint VERTEX_SIZE = grid.SideSize() + 1;
+    const uint VERTEX_SIZE = grid.VoxelsPerSide() + 1;
     
     uint XX = X ? voxelX : voxelZ;
     uint YY = Y ? voxelY : voxelZ;
     uint ZZ = X ? (Y ? (voxelZ + front) : (voxelY + front)) : voxelX + front;
     
-    uint face_index = (ZZ * grid.SideSize() * grid.SideSize()) + (YY * grid.SideSize()) + XX;
+    uint face_index = (ZZ * grid.VoxelsPerSide() * grid.VoxelsPerSide()) + (YY * grid.VoxelsPerSide()) + XX;
 
     if(faces_marked[plane_index][face_index])
         return;
@@ -43,7 +43,10 @@ void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
             auto [vertex, is_new] = vertices_marked.try_emplace(vertex_index, 
                 std::piecewise_construct, 
                 std::forward_as_tuple(vertices.size()), 
-                std::forward_as_tuple(Vx * grid.VoxelSize(), Vy * grid.VoxelSize(), Vz * grid.VoxelSize(), 0.f, 0.f, 0.f, 0xFFFFFFFF)
+                std::forward_as_tuple(grid.OriginX() + (Vx * grid.VoxelSize()), 
+                                      grid.OriginY() + (Vy * grid.VoxelSize()), 
+                                      grid.OriginZ() + (Vz * grid.VoxelSize()), 
+                                      0.f, 0.f, 0.f, 0xFFFFFFFF)
             );
             if(is_new)
                 vertices.push_back(vertex->second.second);
@@ -89,9 +92,9 @@ inline void AddFacesVertexYZ(float voxelX, float voxelY, float voxelZ,
 template<typename T>
 bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, std::vector<Vertex> &vertices) 
 {
-
-    uint max_vertices_num = std::pow(grid.SideSize() + 1, 3);
-    uint max_faces_num = std::pow(grid.SideSize(), 2) * (grid.SideSize() + 1);
+    faces.clear(); vertices.clear();
+    uint max_vertices_num = std::pow(grid.VoxelsPerSide() + 1, 3);
+    uint max_faces_num = std::pow(grid.VoxelsPerSide(), 2) * (grid.VoxelsPerSide() + 1);
 
     std::unordered_map<uint, std::pair<uint, Vertex>> vertices_marked(max_vertices_num);
     std::array<std::vector<bool>, 3> faces_marked = {
@@ -101,9 +104,9 @@ bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, s
     };
 
 
-    for (uint z = 0; z < grid.SideSize(); ++z) {
-        for (uint y = 0; y < grid.SideSize(); ++y) {
-            for (uint x = 0; x < grid.SideSize(); ++x) {
+    for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
+        for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
+            for (uint x = 0; x < grid.VoxelsPerSide(); ++x) {
                 if(!grid(x, y, z))
                     continue;
                 

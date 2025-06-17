@@ -26,5 +26,5 @@ target_compile_features(main PRIVATE cuda_std_20)
 
 target_compile_options(main PRIVATE
     $<$<CONFIG:Release>:-O3 -DNDEBUG>
-    $<$<CONFIG:Debug>:-O0 --expt-relaxed-constexpr>
+    $<$<CONFIG:Debug>:-g -O0 --expt-relaxed-constexpr>
 )
