@@ -143,13 +143,6 @@ public:
     __host__ __device__
     inline float OriginZ() const { return mOriginZ; }
 
-/*    inline std::tuple<size_t, size_t, size_t> GetVoxelFromCoords(float x, float y, float z) */
-    /*{*/
-        /*int voxelX = x - OriginX();*/
-        /*int voxelY = y - OriginY();*/
-        /*int voxelZ = z - OriginZ();*/
-    /*}*/
-
     friend class HostVoxelsGrid<T>;
     friend class DeviceVoxelsGrid<T>;
 };

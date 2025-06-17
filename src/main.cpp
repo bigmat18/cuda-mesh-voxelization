@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <sys/types.h>
+#include <tuple>
 #include <vector>
 #include <random>
 
@@ -27,27 +28,65 @@ bool random_bool() {
     return distribution(engine);
 }
 
+
+__device__ std::tuple<float, float, float> CalculateEdgeTerms(Vertex& V0, Vertex& V1)
+{
+
+    float A = V0.Z - V1.Z;
+    float B = V1.Y - V0.Y;
+    float C = -A * V0.Y - B * V0.Z;    
+
+    return {A, B, C};
+}
+
+__device__ inline float CalculateEdgeFunction(float A, float B, float C, float y, float z)
+{
+    return (A * y) + (B * z) + C;
+}
+
 __global__ void test(int n, uint32_t* faces, Vertex* vertices, VoxelsGrid32bit grid)
 {
 
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-    if (index < n) {
-        Vertex V0 = vertices[faces[(index * 3)]];
-        Vertex V1 = vertices[faces[(index * 3) + 1]];
-        Vertex V2 = vertices[faces[(index * 3) + 2]];
-        Vertex facesVertices[3] = {V0, V1, V2};
-        std::pair<float, float> BB_X, BB_Y, BB_Z;
-        CalculateBoundingBox(std::span<Vertex>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
+    if (index >= n)
+        return;
 
-        for(float y = BB_Y.first, i = 0; y < BB_Y.second; y += grid.VoxelSize(), ++i)
+    Vertex V0 = vertices[faces[(index * 3)]];
+    Vertex V1 = vertices[faces[(index * 3) + 1]];
+    Vertex V2 = vertices[faces[(index * 3) + 2]];
+        
+    auto [A0, B0, C0] = CalculateEdgeTerms(V0, V1);
+    auto [A1, B1, C1] = CalculateEdgeTerms(V1, V2);
+    auto [A2, B2, C2] = CalculateEdgeTerms(V2, V0);
+
+    Vertex facesVertices[3] = {V0, V1, V2};
+    std::pair<float, float> BB_X, BB_Y, BB_Z;
+    CalculateBoundingBox(std::span<Vertex>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
+
+    int startY = static_cast<int>(std::floorf((BB_Y.first - grid.OriginY()) / grid.VoxelSize()));
+    int endY   = static_cast<int>(std::ceilf((BB_Y.second - grid.OriginY()) / grid.VoxelSize()));
+    int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / grid.VoxelSize()));
+    int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / grid.VoxelSize()));
+
+
+    for(int y = startY; y < endY; ++y)
+    {
+        for(int z = startZ; z < endZ; ++z)
         {
-            for(float z = BB_Z.first, j = 0; z < BB_Z.second; z += grid.VoxelSize(), ++j)
-            {
-                int voxelY = static_cast<int>((y - grid.OriginY()) / grid.VoxelSize());
-                int voxelZ = static_cast<int>((z - grid.OriginZ()) / grid.VoxelSize());
-                //LOG_INFO("\nstartY: %f, endY: %f\n startZ: %f, endZ: %f\n(%f - %f) / %f = %d), ((%f - %f) / %f = %d)\n", BB_Y.first, BB_Y.second, BB_Z.first, BB_Z.second, y, grid.OriginY(), grid.VoxelSize(), voxelY, z, grid.OriginZ(), grid.VoxelSize(), voxelZ);
-                grid(0, voxelY, voxelZ) = true;
+            float centerY = grid.OriginY() + ((y * grid.VoxelSize()) + (grid.VoxelSize() / 2));
+            float centerZ = grid.OriginZ() + ((z * grid.VoxelSize()) + (grid.VoxelSize() / 2));
+
+            float E0 = CalculateEdgeFunction(A0, B0, C0, centerY, centerZ);
+            float E1 = CalculateEdgeFunction(A1, B1, C1, centerY, centerZ);
+            float E2 = CalculateEdgeFunction(A2, B2, C2, centerY, centerZ);
+
+            bool ccw_test = (E0 >= 0 && E1 >= 0 && E2 >= 0);
+            bool cw_test = (E0 <= 0 && E1 <= 0 && E2 <= 0);
+            
+            if (ccw_test || cw_test) {
+                grid(0, y, z) = true;
             }
+
         }
     }
 }
@@ -85,7 +124,7 @@ int main(int argc, char **argv) {
     gpuAssert(cudaMalloc((void**) &devVertices, vertices.size() * sizeof(Vertex)));
     gpuAssert(cudaMemcpy(devVertices, &vertices[0], vertices.size() * sizeof(Vertex), cudaMemcpyHostToDevice));
 
-    const size_t voxelsPerSide = 64;
+    const size_t voxelsPerSide = 128;
     DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
     devGrid.View().SetOrigin(X.first, Y.first, Z.first);
 
