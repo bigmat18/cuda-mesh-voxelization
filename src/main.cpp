@@ -32,30 +32,23 @@ __global__ void test(int n, uint32_t* faces, Vertex* vertices, VoxelsGrid32bit g
 
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < n) {
-        Vertex V0 = vertices[faces[index]];
-        Vertex V1 = vertices[faces[index + 1]];
-        Vertex V2 = vertices[faces[index + 2]];
+        Vertex V0 = vertices[faces[(index * 3)]];
+        Vertex V1 = vertices[faces[(index * 3) + 1]];
+        Vertex V2 = vertices[faces[(index * 3) + 2]];
         Vertex facesVertices[3] = {V0, V1, V2};
         std::pair<float, float> BB_X, BB_Y, BB_Z;
         CalculateBoundingBox(std::span<Vertex>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
-        //float sideLength = (grid.SideSize() * grid.VoxelSize());
-        //for(float y = floorf(BB_Y.first); 
-            //y < ceilf(BB_Y.second); 
-            //y += grid.VoxelSize())
-        //{
-            //for(float z = floorf(BB_Z.first); 
-                //z < ceilf(BB_Z.second); 
-                //z += grid.SideSize())
-            //{
-                //int voxelZ = static_cast<int>(floorf(z - grid.OriginZ()));
-                //int voxelY = static_cast<int>(floorf(y - grid.OriginY()));
-                //LOG_INFO("(%f - %f = %d), (%f - %f = %d)", z, grid.OriginZ(), voxelZ, y, grid.OriginY(), voxelY);
-                //grid(0, voxelY, voxelZ) = true;
-            //}
-        //}
-        int x = index % grid.VoxelsPerSide();
-        grid(x, 0, 0) = true;
+        for(float y = BB_Y.first, i = 0; y < BB_Y.second; y += grid.VoxelSize(), ++i)
+        {
+            for(float z = BB_Z.first, j = 0; z < BB_Z.second; z += grid.VoxelSize(), ++j)
+            {
+                int voxelY = static_cast<int>((y - grid.OriginY()) / grid.VoxelSize());
+                int voxelZ = static_cast<int>((z - grid.OriginZ()) / grid.VoxelSize());
+                //LOG_INFO("\nstartY: %f, endY: %f\n startZ: %f, endZ: %f\n(%f - %f) / %f = %d), ((%f - %f) / %f = %d)\n", BB_Y.first, BB_Y.second, BB_Z.first, BB_Z.second, y, grid.OriginY(), grid.VoxelSize(), voxelY, z, grid.OriginZ(), grid.VoxelSize(), voxelZ);
+                grid(0, voxelY, voxelZ) = true;
+            }
+        }
     }
 }
 
@@ -92,7 +85,7 @@ int main(int argc, char **argv) {
     gpuAssert(cudaMalloc((void**) &devVertices, vertices.size() * sizeof(Vertex)));
     gpuAssert(cudaMemcpy(devVertices, &vertices[0], vertices.size() * sizeof(Vertex), cudaMemcpyHostToDevice));
 
-    const size_t voxelsPerSide = 32;
+    const size_t voxelsPerSide = 64;
     DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
     devGrid.View().SetOrigin(X.first, Y.first, Z.first);
 

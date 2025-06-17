@@ -122,6 +122,10 @@ public:
     __host__ __device__
     inline float VoxelSize() const { return mSideLength / mVoxelsPerSide; }
 
+    // Length of a size in terms of real scale
+    __host__ __device__
+    inline float SideLength() const { return mSideLength; }
+
     // How much word we need to store with a specific size
     static inline size_t StorageSize(const size_t sideSize) { 
         return ((sideSize * sideSize * sideSize) + (sizeof(T) - 1)) / sizeof(T);
