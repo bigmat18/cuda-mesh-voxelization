@@ -10,6 +10,7 @@
 #include <string>
 #include <sys/types.h>
 #include <tuple>
+#include <unistd.h>
 #include <vector>
 #include <random>
 
@@ -17,6 +18,7 @@
 #include "mesh_io.h"
 #include "bounding_box.h"
 #include "voxels_grid.h"
+#include "vertex.h"
 #include "voxels_to_mesh.h"
 
 #include <cuda_runtime.h>
@@ -68,6 +70,10 @@ __global__ void test(int n, uint32_t* faces, Vertex* vertices, VoxelsGrid32bit g
     int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / grid.VoxelSize()));
     int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / grid.VoxelSize()));
 
+    Vertex edge0 = V1 - V0;
+    Vertex edge1 = V2 - V0;
+    auto [A, B, C] = Vertex::Cross(edge0, edge1);
+    float D = Vertex::Dot({A, B, C}, V0);
 
     for(int y = startY; y < endY; ++y)
     {
@@ -84,9 +90,13 @@ __global__ void test(int n, uint32_t* faces, Vertex* vertices, VoxelsGrid32bit g
             bool cw_test = (E0 <= 0 && E1 <= 0 && E2 <= 0);
             
             if (ccw_test || cw_test) {
-                grid(0, y, z) = true;
-            }
+                float intersection = (D - (B * centerY) - (C * centerZ)) / A;
 
+                int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
+                int endX = grid.VoxelsPerSide();
+                for(int x = startX; x < endX; ++x)
+                    grid(x, y, z) ^= true;
+            }
         }
     }
 }
@@ -98,7 +108,9 @@ int main(int argc, char **argv) {
     }
 
     std::vector<uint32_t> faces;
-    std::vector<Vertex> vertices;
+    std::vector<Vertex> coordinates;
+    std::vector<Normal> normals;
+    std::vector<Color> colors;
 
     if (!ImportMesh(argv[1], faces, vertices)) {
         LOG_ERROR("Error in mesh import");

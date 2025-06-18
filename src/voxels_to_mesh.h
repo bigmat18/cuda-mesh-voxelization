@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "mesh_io.h"
+#include "vertex.h"
 #include "voxels_grid.h"
 
 #ifndef VOXEL_TO_MESH_H

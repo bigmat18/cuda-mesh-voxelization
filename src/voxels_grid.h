@@ -1,7 +1,6 @@
 #ifndef VOXELS_GRID
 #define VOXELS_GRID
 
-#include "mesh_io.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -12,8 +11,9 @@
 #include <memory>
 #include <span>
 #include <sys/types.h>
-#include <tuple>
 #include <type_traits>
+
+#include "cuda_utils.cuh"
 
 template<typename T, typename... Types>
 __host__ __device__ static inline constexpr bool is_one_of = 
@@ -51,7 +51,7 @@ class VoxelsGrid
             mWord(word), mMask(mask) {}
 
         __host__ __device__
-        Bit& operator= (bool value) 
+        Bit& operator=(bool value) 
         {
             #if defined (__CUDA_ARCH__)
             static_assert(sizeof(T) >= 4);
@@ -62,6 +62,18 @@ class VoxelsGrid
             else      (*mWord) &= ~mMask;
             #endif // !__CUDA_ARCH__
 
+            return *this;
+        }
+
+        __host__ __device__
+        Bit& operator^=(bool value)
+        {
+            #if defined (__CUDA_ARCH__)
+            static_assert(sizeof(T) >= 4);
+            if(value) atomicXor(mWord, mMask);
+            #else
+            if(value) (*mWord) ^= mMask;
+            #endif
             return *this;
         }
 

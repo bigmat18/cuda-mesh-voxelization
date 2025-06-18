@@ -1,8 +1,10 @@
-#include "mesh_io.h"
 #include <functional>
 #include <optional>
 #include <span>
 #include <utility>
+
+#include "cuda_utils.cuh"
+#include "vertex.h"
 
 #ifndef BOUNDING_BOX_H
 
