@@ -24,12 +24,6 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 
-bool random_bool() {
-    static std::mt19937 engine(std::random_device{}());
-    static std::bernoulli_distribution distribution(0.5);
-    return distribution(engine);
-}
-
 
 __device__ std::tuple<float, float, float> CalculateEdgeTerms(Vertex& V0, Vertex& V1)
 {
@@ -46,16 +40,16 @@ __device__ inline float CalculateEdgeFunction(float A, float B, float C, float y
     return (A * y) + (B * z) + C;
 }
 
-__global__ void test(int n, uint32_t* faces, Vertex* vertices, VoxelsGrid32bit grid)
+__global__ void test(int n, uint32_t* facesCoords, Vertex* coords, VoxelsGrid32bitDev grid)
 {
 
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index >= n)
         return;
 
-    Vertex V0 = vertices[faces[(index * 3)]];
-    Vertex V1 = vertices[faces[(index * 3) + 1]];
-    Vertex V2 = vertices[faces[(index * 3) + 2]];
+    Vertex V0 = coords[facesCoords[(index * 3)]];
+    Vertex V1 = coords[facesCoords[(index * 3) + 1]];
+    Vertex V2 = coords[facesCoords[(index * 3) + 2]];
         
     auto [A0, B0, C0] = CalculateEdgeTerms(V0, V1);
     auto [A1, B1, C1] = CalculateEdgeTerms(V1, V2);
@@ -102,23 +96,26 @@ __global__ void test(int n, uint32_t* faces, Vertex* vertices, VoxelsGrid32bit g
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Need a mesh parameter\n");
+    if (argc < 3) {
+        fprintf(stderr, "Need two mesh parameter [input file] [output file]\n");
         exit(0);
     }
 
-    std::vector<uint32_t> faces;
-    std::vector<Vertex> coordinates;
+    std::vector<uint32_t> facesCoords, facesNormals;
+    std::vector<Vertex> coords;
     std::vector<Normal> normals;
     std::vector<Color> colors;
 
-    if (!ImportMesh(argv[1], faces, vertices)) {
+    if (!ImportMesh(argv[1], facesCoords, facesNormals, coords, normals, colors)) {
         LOG_ERROR("Error in mesh import");
         return -1;
     }
 
-    std::pair<float, float> X, Y, Z;
-    const float sideLength = CalculateBoundingBox(std::span<Vertex>(&vertices[0], vertices.size()), X, Y, Z);
+    std::pair<float, float> bbX, bbY, bbZ;
+    const float sideLength = CalculateBoundingBox(
+        std::span<Vertex>(&coords[0], coords.size()), 
+        bbX, bbY, bbZ
+    );
 
     int device = 0;
     cudaSetDevice(device);
@@ -129,18 +126,18 @@ int main(int argc, char **argv) {
     cudaDeviceGetAttribute(&maxBlockDimZ, cudaDevAttrMaxBlockDimZ, device);
    
     uint32_t* devFaces;
-    gpuAssert(cudaMalloc((void**) &devFaces, faces.size() * sizeof(uint32_t)));
-    gpuAssert(cudaMemcpy(devFaces, &faces[0], faces.size() * sizeof(uint32_t), cudaMemcpyHostToDevice));
+    gpuAssert(cudaMalloc((void**) &devFaces, facesCoords.size() * sizeof(uint32_t)));
+    gpuAssert(cudaMemcpy(devFaces, &facesCoords[0], facesCoords.size() * sizeof(uint32_t), cudaMemcpyHostToDevice));
 
     Vertex* devVertices;
-    gpuAssert(cudaMalloc((void**) &devVertices, vertices.size() * sizeof(Vertex)));
-    gpuAssert(cudaMemcpy(devVertices, &vertices[0], vertices.size() * sizeof(Vertex), cudaMemcpyHostToDevice));
+    gpuAssert(cudaMalloc((void**) &devVertices, coords.size() * sizeof(Vertex)));
+    gpuAssert(cudaMemcpy(devVertices, &coords[0], coords.size() * sizeof(Vertex), cudaMemcpyHostToDevice));
 
-    const size_t voxelsPerSide = 128;
+    const size_t voxelsPerSide = 32;
     DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
-    devGrid.View().SetOrigin(X.first, Y.first, Z.first);
+    devGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
 
-    int n = faces.size() / 3;
+    int n = facesCoords.size() / 3;
     int blockSize = 256;
     int gridSize = (n + blockSize - 1) / blockSize;
     
@@ -162,9 +159,11 @@ int main(int argc, char **argv) {
         std::cout << std::endl;
     }
     #endif // DEBUG
-    
-    VoxelsGridToMesh(hostGrid.View(), faces, vertices);
-    if(!ExportMesh("assets/test.obj", faces, vertices)) {
+   
+
+    VoxelsGridToMesh(hostGrid.View(), facesCoords, facesNormals, coords, normals, colors);
+
+    if(!ExportMesh(argv[2], facesCoords, facesNormals, coords, normals, colors)) {
         LOG_ERROR("Error in mesh export");
         return -1;
     }

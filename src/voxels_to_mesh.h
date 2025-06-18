@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -12,8 +14,10 @@ using uint = unsigned int;
 
 template <typename T, bool X = false,  bool Y = false, bool Z = false, bool front = false>
 void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
-                    const VoxelsGrid<T> &grid,
-                    std::vector<uint32_t> &faces, std::vector<Vertex> &vertices,
+                    const VoxelsGrid<T>& grid,
+                    std::vector<uint32_t>& facesCoord, 
+                    std::vector<uint32_t>& facesNormals,
+                    std::vector<Vertex>& coords,
                     std::array<std::vector<bool>, 3> &faces_marked, 
                     std::unordered_map<uint, std::pair<uint, Vertex>> &vertices_marked) 
 {
@@ -42,57 +46,98 @@ void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
             uint vertex_index = (Vz * VERTEX_SIZE * VERTEX_SIZE) + (Vy * VERTEX_SIZE) + Vx;
             auto [vertex, is_new] = vertices_marked.try_emplace(vertex_index, 
                 std::piecewise_construct, 
-                std::forward_as_tuple(vertices.size()), 
+                std::forward_as_tuple(coords.size()), 
                 std::forward_as_tuple(grid.OriginX() + (Vx * grid.VoxelSize()), 
                                       grid.OriginY() + (Vy * grid.VoxelSize()), 
-                                      grid.OriginZ() + (Vz * grid.VoxelSize()), 
-                                      0.f, 0.f, 0.f, 0xFFFFFFFF)
-            );
-            if(is_new)
-                vertices.push_back(vertex->second.second);
-
+                                      grid.OriginZ() + (Vz * grid.VoxelSize()))
+            ); 
+            if(is_new) 
+                coords.push_back(vertex->second.second);
+ 
             final_vertex_index[u + (v * 2)] = vertex->second.first;
+        } 
+    } 
+
+    if constexpr (front) {
+        if constexpr (plane_index != 0) {
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[0], final_vertex_index[2], final_vertex_index[1]});
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[1], final_vertex_index[2], final_vertex_index[3]});
+        } else {
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[0], final_vertex_index[1], final_vertex_index[2]});
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[1], final_vertex_index[3], final_vertex_index[2]});
+        }
+    } else {
+        if constexpr (plane_index != 0) {
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[0], final_vertex_index[1], final_vertex_index[2]});
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[1], final_vertex_index[3], final_vertex_index[2]});
+        } else {
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[0], final_vertex_index[2], final_vertex_index[1]});
+            facesCoord.insert(facesCoord.end(), {final_vertex_index[1], final_vertex_index[2], final_vertex_index[3]});
         }
     }
 
-    faces.insert(faces.end(), {final_vertex_index[0], final_vertex_index[2], final_vertex_index[1]});
-    faces.insert(faces.end(), {final_vertex_index[1], final_vertex_index[2], final_vertex_index[3]});
+    facesNormals.insert(facesNormals.end(), 6, (front * 3) + plane_index);
 }
 
 template <typename T, bool front = false>
 inline void AddFacesVertexXY(float voxelX, float voxelY, float voxelZ, 
                              const VoxelsGrid<T> &grid, 
-                             std::vector<uint32_t> &faces, std::vector<Vertex> &vertices, 
+                             std::vector<uint32_t>& facesCoord, 
+                             std::vector<uint32_t>& facesNormals,
+                             std::vector<Vertex>& coords, 
                              std::array<std::vector<bool>, 3> &faces_marked, 
                              std::unordered_map<uint, std::pair<uint, Vertex>> &vertices_marked) 
 {
-    AddFacesVertex<T, true, true, false, front>(voxelX, voxelY, voxelZ, grid, faces, vertices, faces_marked, vertices_marked);
+    AddFacesVertex<T, true, true, false, front>(
+        voxelX, voxelY, voxelZ, grid, 
+        facesCoord, facesNormals, coords, 
+        faces_marked, vertices_marked
+    );
 }
 
 template <typename T, bool front = false>
 inline void AddFacesVertexXZ(float voxelX, float voxelY, float voxelZ, 
-                             const VoxelsGrid<T> &grid, 
-                             std::vector<uint32_t> &faces, std::vector<Vertex> &vertices, 
+                             const VoxelsGrid<T> &grid,
+                             std::vector<uint32_t>& facesCoord, 
+                             std::vector<uint32_t>& facesNormals,
+                             std::vector<Vertex>& coords, 
                              std::array<std::vector<bool>, 3> &faces_marked, 
                              std::unordered_map<uint, std::pair<uint, Vertex>> &vertices_marked) 
 {
-    AddFacesVertex<T, true, false, true, front>(voxelX, voxelY, voxelZ, grid, faces, vertices, faces_marked, vertices_marked);
+    AddFacesVertex<T, true, false, true, front>(
+        voxelX, voxelY, voxelZ, grid, 
+        facesCoord, facesNormals, coords, 
+        faces_marked, vertices_marked
+    );
 }
 
 template <typename T, bool front = false>
 inline void AddFacesVertexYZ(float voxelX, float voxelY, float voxelZ, 
-                             const VoxelsGrid<T> &grid, 
-                             std::vector<uint32_t> &faces, std::vector<Vertex> &vertices, 
+                             const VoxelsGrid<T>& grid, 
+                             std::vector<uint32_t>& facesCoord, 
+                             std::vector<uint32_t>& facesNormals,
+                             std::vector<Vertex>& coords, 
                              std::array<std::vector<bool>, 3> &faces_marked, 
                              std::unordered_map<uint, std::pair<uint, Vertex>> &vertices_marked) 
 {
-    AddFacesVertex<T, false, true, true, front>(voxelX, voxelY, voxelZ, grid, faces, vertices, faces_marked, vertices_marked);
+    AddFacesVertex<T, false, true, true, front>(
+        voxelX, voxelY, voxelZ, grid, 
+        facesCoord, facesNormals, coords, 
+        faces_marked, vertices_marked
+    );
 }
 
 template<typename T>
-bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, std::vector<Vertex> &vertices) 
+bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, 
+                      std::vector<uint32_t>& facesCoord, 
+                      std::vector<uint32_t>& facesNormals,
+                      std::vector<Vertex>& coords,
+                      std::vector<Normal>& normals,
+                      std::vector<Color>& colors) 
 {
-    faces.clear(); vertices.clear();
+    facesCoord.clear(); facesNormals.clear(); 
+    coords.clear(), normals.clear(); colors.clear();
+
     uint max_vertices_num = std::pow(grid.VoxelsPerSide() + 1, 3);
     uint max_faces_num = std::pow(grid.VoxelsPerSide(), 2) * (grid.VoxelsPerSide() + 1);
 
@@ -103,6 +148,13 @@ bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, s
         std::vector<bool>(max_faces_num, false)
     };
 
+    normals.emplace_back(0,0,1);
+    normals.emplace_back(0,1,0);
+    normals.emplace_back(1,0,0);
+    
+    normals.emplace_back(0,0,-1);
+    normals.emplace_back(0,-1,0);
+    normals.emplace_back(-1,0,0);
 
     for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
         for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
@@ -110,17 +162,21 @@ bool VoxelsGridToMesh(const VoxelsGrid<T> &grid, std::vector<uint32_t> &faces, s
                 if(!grid(x, y, z))
                     continue;
                 
-                AddFacesVertexXY<T, false>(x, y, z, grid, faces, vertices, faces_marked, vertices_marked);
-                AddFacesVertexXY<T, true>(x, y, z, grid, faces, vertices, faces_marked, vertices_marked);
+                AddFacesVertexXY<T, false>(x, y, z, grid, facesCoord, facesNormals, coords, faces_marked, vertices_marked);
+                AddFacesVertexXY<T, true>(x, y, z, grid, facesCoord, facesNormals, coords, faces_marked, vertices_marked);
 
-                AddFacesVertexXZ<T, false>(x, y, z, grid, faces, vertices, faces_marked, vertices_marked);
-                AddFacesVertexXZ<T, true>(x, y, z, grid, faces, vertices, faces_marked, vertices_marked);
+                AddFacesVertexXZ<T, false>(x, y, z, grid, facesCoord, facesNormals, coords, faces_marked, vertices_marked);
+                AddFacesVertexXZ<T, true>(x, y, z, grid, facesCoord, facesNormals, coords, faces_marked, vertices_marked);
 
-                AddFacesVertexYZ<T, false>(x, y, z, grid, faces, vertices, faces_marked, vertices_marked);
-                AddFacesVertexYZ<T, true>(x, y, z, grid, faces, vertices, faces_marked, vertices_marked);
+                AddFacesVertexYZ<T, false>(x, y, z, grid, facesCoord, facesNormals, coords, faces_marked, vertices_marked);
+                AddFacesVertexYZ<T, true>(x, y, z, grid, facesCoord, facesNormals, coords, faces_marked, vertices_marked);
             } 
         }
     }
+
+    colors.reserve(coords.size());
+    colors.assign(coords.size(), Color(1.0f, 1.0f, 1.0f, 1.0f));
+
     #ifdef DEBUG
     for(uint i = 0; i < vertices.size(); ++i) {
         std::cout << i << ": " << vertices[i].X << " " << vertices[i].Y << " " << vertices[i].Z << std::endl;

@@ -32,6 +32,7 @@ class DeviceVoxelsGrid;
 
 template <
     typename T = uint8_t,
+    bool device = false,
     typename = std::enable_if_t<is_one_of<T, uint8_t, uint16_t, uint32_t, uint64_t>>>
 class VoxelsGrid 
 {
@@ -53,27 +54,26 @@ class VoxelsGrid
         __host__ __device__
         Bit& operator=(bool value) 
         {
-            #if defined (__CUDA_ARCH__)
-            static_assert(sizeof(T) >= 4);
-            if(value) atomicOr(mWord, mMask);
-            else      atomicAnd(mWord, ~mMask);
-            #else 
-            if(value) (*mWord) |= mMask;
-            else      (*mWord) &= ~mMask;
-            #endif // !__CUDA_ARCH__
-
+            if constexpr (device) {
+                static_assert(sizeof(T) >= 4);
+                if(value) atomicOr(mWord, mMask);
+                else      atomicAnd(mWord, ~mMask);
+            } else {
+                if(value) (*mWord) |= mMask;
+                else      (*mWord) &= ~mMask;
+            }
             return *this;
         }
 
         __host__ __device__
         Bit& operator^=(bool value)
         {
-            #if defined (__CUDA_ARCH__)
-            static_assert(sizeof(T) >= 4);
-            if(value) atomicXor(mWord, mMask);
-            #else
-            if(value) (*mWord) ^= mMask;
-            #endif
+            if constexpr (device) {
+               static_assert(sizeof(T) >= 4);
+               if(value) atomicXor(mWord, mMask);
+            } else {
+                if(value) (*mWord) ^= mMask;
+            }
             return *this;
         }
 
@@ -164,13 +164,13 @@ template <typename T, typename>
 class HostVoxelsGrid 
 {
     std::unique_ptr<T[]> mData;
-    VoxelsGrid<T> mView;
+    VoxelsGrid<T, false> mView;
 
 public:
     HostVoxelsGrid(const size_t voxelsPerSide, const float sideLength)
     {
         mData = std::make_unique<T[]>(VoxelsGrid<T>::StorageSize(voxelsPerSide));
-        mView = VoxelsGrid<T>(mData, voxelsPerSide, sideLength);
+        mView = VoxelsGrid<T, false>(mData.get(), voxelsPerSide, sideLength);
         std::fill(mView.mVoxels.begin(), mView.mVoxels.end(), 0);
     }
 
@@ -187,9 +187,9 @@ public:
     HostVoxelsGrid(const HostVoxelsGrid&) = delete;
     HostVoxelsGrid& operator=(const HostVoxelsGrid&) = delete;
 
-    inline VoxelsGrid<T>& View() { return mView; }
+    inline VoxelsGrid<T, false>& View() { return mView; }
 
-    inline const VoxelsGrid<T>& View() const { return mView; }
+    inline const VoxelsGrid<T, false>& View() const { return mView; }
 
     friend class DeviceVoxelsGrid<T>;
 };
@@ -199,7 +199,7 @@ template <typename T, typename>
 class DeviceVoxelsGrid 
 {
     T* mData = nullptr;
-    VoxelsGrid<T> mView;
+    VoxelsGrid<T, true> mView;
 
 public:
     DeviceVoxelsGrid(const size_t voxelsPerSide, const float sideLength)
@@ -207,14 +207,14 @@ public:
         const size_t storageSize = VoxelsGrid<T>::StorageSize(voxelsPerSide) * sizeof(T);           
         gpuAssert(cudaMalloc((void**) &mData, storageSize));   
         gpuAssert(cudaMemset(mData, 0, storageSize));
-        mView = VoxelsGrid<T>(mData, voxelsPerSide, sideLength);
+        mView = VoxelsGrid<T, true>(mData, voxelsPerSide, sideLength);
     }
 
     DeviceVoxelsGrid(const HostVoxelsGrid<T>& host) 
     {
         const size_t storageSize = VoxelsGrid<T>::StorageSize(host.View().mVoxelsPerSide) * sizeof(T);
         gpuAssert(cudaMalloc((void**) &mData, storageSize));
-        mView = VoxelsGrid<T>(mData, host.View().mVoxelsPerSide, host.View().mSideLength);
+        mView = VoxelsGrid<T, true>(mData, host.View().mVoxelsPerSide, host.View().mSideLength);
         gpuAssert(cudaMemcpy(mData, host.mData, storageSize, cudaMemcpyHostToDevice));
         mView.SetOrigin(host.View().OriginX(), host.View().OriginY(), host.View().OriginZ());
     }
@@ -228,14 +228,24 @@ public:
     DeviceVoxelsGrid(const DeviceVoxelsGrid&) = delete;
     DeviceVoxelsGrid& operator=(const DeviceVoxelsGrid&) = delete;
 
-    inline VoxelsGrid<T>& View() { return mView; }
+    inline VoxelsGrid<T, true>& View() { return mView; }
 
-    inline const VoxelsGrid<T>& View() const { return mView; }
+    inline const VoxelsGrid<T, true>& View() const { return mView; }
 
     friend class HostVoxelsGrid<T>;
 };
 
 
+
+using VoxelsGrid8bitHost  = VoxelsGrid<uint8_t>;
+using VoxelsGrid16bitHost = VoxelsGrid<uint16_t>;
+using VoxelsGrid32bitHost = VoxelsGrid<uint32_t>;
+using VoxelsGrid64bitHost = VoxelsGrid<uint64_t>;
+
+using VoxelsGrid8bitDev  = VoxelsGrid<uint8_t, true>;
+using VoxelsGrid16bitDev = VoxelsGrid<uint16_t, true>;
+using VoxelsGrid32bitDev = VoxelsGrid<uint32_t, true>;
+using VoxelsGrid64bitDev = VoxelsGrid<uint64_t, true>;    
 
 using VoxelsGrid8bit  = VoxelsGrid<uint8_t>;
 using VoxelsGrid16bit = VoxelsGrid<uint16_t>;

@@ -10,7 +10,7 @@
 
 
 template<bool device = false> __host__ __device__ 
-float CalculateBoundingBox(std::span<Vertex> vertices,
+float CalculateBoundingBox(std::span<Vertex> coordinates,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxX = std::nullopt,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxY = std::nullopt,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxZ = std::nullopt)
@@ -19,19 +19,19 @@ float CalculateBoundingBox(std::span<Vertex> vertices,
         // Run GPU version 
     } else {
         
-        float minX = vertices[0].X, maxX = vertices[0].X;
-        float minY = vertices[0].Y, maxY = vertices[0].Y;
-        float minZ = vertices[0].Z, maxZ = vertices[0].Z;   
+        float minX = coordinates[0].X, maxX = coordinates[0].X;
+        float minY = coordinates[0].Y, maxY = coordinates[0].Y;
+        float minZ = coordinates[0].Z, maxZ = coordinates[0].Z;   
 
-        for (unsigned int i = 1; i < vertices.size(); ++i) {
-            if(vertices[i].X < minX) minX = vertices[i].X;
-            else if(vertices[i].X > maxX) maxX = vertices[i].X;
+        for (unsigned int i = 1; i < coordinates.size(); ++i) {
+            if(coordinates[i].X < minX) minX = coordinates[i].X;
+            else if(coordinates[i].X > maxX) maxX = coordinates[i].X;
 
-            if(vertices[i].Y < minY) minY = vertices[i].Y;
-            else if(vertices[i].Y > maxY) maxY = vertices[i].Y;
+            if(coordinates[i].Y < minY) minY = coordinates[i].Y;
+            else if(coordinates[i].Y > maxY) maxY = coordinates[i].Y;
 
-            if(vertices[i].Z < minZ) minZ = vertices[i].Z;
-            else if(vertices[i].Z > maxZ) maxZ= vertices[i].Z;
+            if(coordinates[i].Z < minZ) minZ = coordinates[i].Z;
+            else if(coordinates[i].Z > maxZ) maxZ= coordinates[i].Z;
         }
         
         #ifdef DEBUG 

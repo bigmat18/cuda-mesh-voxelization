@@ -21,7 +21,7 @@
 bool ImportMesh(const std::string filename, 
                 std::vector<uint32_t>& facesCoords,
                 std::vector<uint32_t>& facesNormals,
-                std::vector<Vertex>& coordinates,
+                std::vector<Vertex>& coords,
                 std::vector<Normal>& normals,
                 std::vector<Color>& colors) 
 {
@@ -44,7 +44,7 @@ bool ImportMesh(const std::string filename,
 
     facesCoords.clear();
     facesNormals.clear();
-    coordinates.clear();
+    coords.clear();
     normals.clear();
     colors.clear();
 
@@ -58,19 +58,19 @@ bool ImportMesh(const std::string filename,
         if(prefix == "#") {
             int count;      
             if (sscanf(line.c_str(), "# Vertices: %d", &count) == 1) {
-                coordinates.reserve(count);
+                coords.reserve(count);
                 normals.reserve(count);
                 colors.reserve(count);
             } else if (sscanf(line.c_str(), "# Faces: %d", &count) == 1) {
-                facesCoords.reserve(count * 3);
-                facesNormals.reserve(count * 3);
+                facesCoords.reserve(count * 6);
+                facesNormals.reserve(count * 6);
             }
         } else if (prefix == "vn") {
             ss >> nX >> nY >> nZ;
             normals.emplace_back(std::stof(nX), std::stof(nY), std::stof(nZ));
         } else if (prefix == "v") {
             ss >> X >> Y >> Z;
-            coordinates.emplace_back(std::stof(X), std::stof(Y), std::stof(Z));
+            coords.emplace_back(std::stof(X), std::stof(Y), std::stof(Z));
 
             bool hasRGB = bool(ss >> r >> g >> b);
             if(hasRGB)
@@ -95,7 +95,7 @@ bool ImportMesh(const std::string filename,
     LOG_INFO("Mesh sucessfully imported");
     facesCoords.shrink_to_fit();
     facesNormals.shrink_to_fit();
-    coordinates.shrink_to_fit();
+    coords.shrink_to_fit();
     normals.shrink_to_fit();
     colors.shrink_to_fit();
     return true;
@@ -105,7 +105,7 @@ bool ImportMesh(const std::string filename,
 bool ExportMesh(const std::string filename, 
                 std::vector<uint32_t>& facesCoords,
                 std::vector<uint32_t>& facesNormals,
-                std::vector<Vertex>& coordinates,
+                std::vector<Vertex>& coords,
                 std::vector<Normal>& normals,
                 std::vector<Color>& colors)
 {
@@ -117,22 +117,22 @@ bool ExportMesh(const std::string filename,
 
     file << std::fixed << std::setprecision(6);
     file << "# OBJ file exporter by Matteo Giuntoni custom exporter\n";
-    file << "# Vertices: " << coordinates.size() << "\n";
-    file << "# Faces: " << facesCoords.size() / 3 << "\n";
+    file << "# Vertices: " << coords.size() << "\n";
+    file << "# Faces: " << facesCoords.size() / 6 << "\n";
 
 
-    for (size_t i = 0; i < coordinates.size(); ++i) {
+    for (size_t i = 0; i < coords.size(); ++i) {
         float r = static_cast<float>(colors[i].R()) / 255.0f;
         float g = static_cast<float>(colors[i].G()) / 255.0f;
         float b = static_cast<float>(colors[i].B()) / 255.0f;
         
-        file << "v " << coordinates[i].X << " " << coordinates[i].Y << " " << coordinates[i].Z << " " << r << " " << g << " " << b << "\n";
+        file << "v " << coords[i].X << " " << coords[i].Y << " " << coords[i].Z << " " << r << " " << g << " " << b << "\n";
     }
-    LOG_INFO("Coordinates are loaded");
+    LOG_INFO("Coords are loaded");
     file << "\n";
 
     for (size_t i = 0; i < normals.size(); ++i) {
-        file << "vn " << normals[i].X << " " << normals[i].Y << " " << normals[i].Z;
+        file << "vn " << normals[i].X << " " << normals[i].Y << " " << normals[i].Z << "\n";
     }
 
     LOG_INFO("Normals are loades");

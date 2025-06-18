@@ -42,7 +42,7 @@ template <typename T = float> struct Vec3 {
 
     __host__ __device__ Vec3(T x, T y, T z) : X(x), Y(y), Z(z) {}
 
-    Vec3(const Vec3<T> &v) : X(v.X), Y(v.Y), Z(v.Z) {}
+    __host__ __device__ Vec3(const Vec3<T> &v) : X(v.X), Y(v.Y), Z(v.Z) {}
 
     __host__ __device__ Vec3<T> operator+(const Vec3<T> &v) const {
       return Vec3<T>(X + v.X, Y + v.Y, Z + v.Z);
