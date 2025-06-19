@@ -4,6 +4,7 @@
 /build/
 /bin/
 /obj/
+/out/
 .cache/
 
 # Compiled binaries and libraries
