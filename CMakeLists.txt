@@ -20,6 +20,7 @@ add_executable(main ${CPP_FILES} ${CU_FILES})
 set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CUDA)
 
 target_include_directories(main PUBLIC "${LIBS_DIR}")
+target_include_directories(main PUBLIC "${SRC_DIR}")
 
 target_compile_features(main PRIVATE cxx_std_23)
 target_compile_features(main PRIVATE cuda_std_20)

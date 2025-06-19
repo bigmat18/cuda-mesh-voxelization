@@ -3,14 +3,14 @@
 #include <span>
 #include <utility>
 
-#include "cuda_utils.cuh"
-#include "vertex.h"
+#include "debug_utils.h"
+#include "mesh.h"
 
 #ifndef BOUNDING_BOX_H
 
 
 template<bool device = false> __host__ __device__ 
-float CalculateBoundingBox(std::span<Vertex> coordinates,
+float CalculateBoundingBox(std::span<Position> coordinates,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxX = std::nullopt,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxY = std::nullopt,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxZ = std::nullopt)

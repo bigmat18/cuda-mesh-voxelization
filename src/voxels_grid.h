@@ -1,22 +1,16 @@
 #ifndef VOXELS_GRID
 #define VOXELS_GRID
 
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <cuda_runtime_api.h>
-#include <driver_types.h>
 #include <memory>
 #include <span>
 #include <sys/types.h>
 #include <type_traits>
+#include <cassert>
 
-#include "cuda_utils.cuh"
+#include <debug_utils.h>
 
 template<typename T, typename... Types>
-__host__ __device__ static inline constexpr bool is_one_of = 
+__device__ static inline constexpr bool is_one_of = 
     ( std::is_same_v<T, Types> || ... );
 
 template <
@@ -39,7 +33,9 @@ class VoxelsGrid
     std::span<T> mVoxels;
     size_t mVoxelsPerSide;
     float mSideLength;
-    float mOriginX, mOriginY, mOriginZ = 0;
+    float mOriginX = 0;
+    float mOriginY = 0;
+    float mOriginZ = 0;
 
     class Bit {
         T* mWord;
@@ -89,27 +85,27 @@ public:
     VoxelsGrid(T* data, const size_t voxelsPerSide, const float sideLength) :
         mVoxelsPerSide(voxelsPerSide), mSideLength(sideLength) 
     {
-        mVoxels = std::span<T>(data, SpaceSize());
+        mVoxels = std::span<T>(data, StorageSize(mVoxelsPerSide));
     }
 
     __host__ __device__
     Bit operator() (size_t x, size_t y, size_t z) {
-        assert(x < mVoxelsPerSide);
-        assert(y < mVoxelsPerSide);
-        assert(z < mVoxelsPerSide);
+        assert(x < mVoxelsPerSide); 
+        assert(y < mVoxelsPerSide); 
+        assert(z < mVoxelsPerSide); 
 
         size_t index = Index(x, y, z);
-        return Bit(&mVoxels[index / WordSize()], (1 << (index % WordSize())));
+        return Bit(&mVoxels[index / WordSize()], (T(1) << (index % WordSize())));
     }
 
     __host__ __device__
     bool operator()(size_t x, size_t y, size_t z) const {
-        assert(x < mVoxelsPerSide);
-        assert(y < mVoxelsPerSide);
-        assert(z < mVoxelsPerSide);
+        assert(x < mVoxelsPerSide); 
+        assert(y < mVoxelsPerSide); 
+        assert(z < mVoxelsPerSide); 
 
         size_t index = Index(x, y, z);
-        return (mVoxels[index / WordSize()] & (1 << (index % WordSize()))) != 0;
+        return (mVoxels[index / WordSize()] & (T(1) << (index % WordSize()))) != 0;
     }
 
     __host__ __device__
@@ -120,7 +116,7 @@ public:
 
     // The size of a single word, the voxels space are stored in block of uint (8, 16, 32 ... bit)
     __host__ __device__
-    inline size_t WordSize() const { return sizeof(T) * 8; }
+    static inline size_t WordSize() { return sizeof(T) * 8; }
 
     // The size of alla voxels space (mVoxelsPerSize * mVoxelsPerSize * mVoxelsPerSize)
     __host__ __device__
@@ -139,8 +135,9 @@ public:
     inline float SideLength() const { return mSideLength; }
 
     // How much word we need to store with a specific size
+    __host__ __device__
     static inline size_t StorageSize(const size_t sideSize) { 
-        return ((sideSize * sideSize * sideSize) + (sizeof(T) - 1)) / sizeof(T);
+        return ((sideSize * sideSize * sideSize) + (WordSize() - 1)) / WordSize();
     }
 
     // Get Origin X value of grid
@@ -234,8 +231,6 @@ public:
 
     friend class HostVoxelsGrid<T>;
 };
-
-
 
 using VoxelsGrid8bitHost  = VoxelsGrid<uint8_t>;
 using VoxelsGrid16bitHost = VoxelsGrid<uint16_t>;
