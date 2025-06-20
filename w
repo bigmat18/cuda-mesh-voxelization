@@ -1,7 +1,6 @@
 #ifndef VOXELS_GRID
 #define VOXELS_GRID
 
-#include <cstdint>
 #include <memory>
 #include <span>
 #include <sys/types.h>
@@ -20,13 +19,13 @@ template <
 class HostVoxelsGrid;
 
 template <
-    typename T = uint32_t,
-    typename = std::enable_if_t<is_one_of<T, uint8_t, uint16_t, uint32_t, uint64_t>>>
+    typename T = uint8_t,
+    typename = std::enable_if_t<is_one_of<T, uint32_t, uint64_t>>>
 class DeviceVoxelsGrid;
 
 
 template <
-    typename T = uint32_t,
+    typename T = uint8_t,
     bool device = false,
     typename = std::enable_if_t<is_one_of<T, uint8_t, uint16_t, uint32_t, uint64_t>>>
 class VoxelsGrid 
@@ -233,17 +232,20 @@ public:
     friend class HostVoxelsGrid<T>;
 };
 
+using VoxelsGrid8bitHost  = VoxelsGrid<uint8_t>;
+using VoxelsGrid16bitHost = VoxelsGrid<uint16_t>;
+using VoxelsGrid32bitHost = VoxelsGrid<uint32_t>;
+using VoxelsGrid64bitHost = VoxelsGrid<uint64_t>;
+
+using VoxelsGrid8bitDev  = VoxelsGrid<uint8_t, true>;
+using VoxelsGrid16bitDev = VoxelsGrid<uint16_t, true>;
+using VoxelsGrid32bitDev = VoxelsGrid<uint32_t, true>;
+using VoxelsGrid64bitDev = VoxelsGrid<uint64_t, true>;    
 
 using VoxelsGrid8bit  = VoxelsGrid<uint8_t>;
 using VoxelsGrid16bit = VoxelsGrid<uint16_t>;
 using VoxelsGrid32bit = VoxelsGrid<uint32_t>;
 using VoxelsGrid64bit = VoxelsGrid<uint64_t>;
-
-
-using VoxelsGrid8bitHost  = VoxelsGrid<uint8_t, false>;
-using VoxelsGrid16bitHost = VoxelsGrid<uint16_t, false>;
-using VoxelsGrid32bitHost = VoxelsGrid<uint32_t, false>;
-using VoxelsGrid64bitHost = VoxelsGrid<uint64_t, false>;
 
 using HostVoxelsGrid8bit  = HostVoxelsGrid<uint8_t>;
 using HostVoxelsGrid16bit = HostVoxelsGrid<uint16_t>;
@@ -251,9 +253,8 @@ using HostVoxelsGrid32bit = HostVoxelsGrid<uint32_t>;
 using HostVoxelsGrid64bit = HostVoxelsGrid<uint64_t>;
 
 
-using VoxelsGrid32bitDev = VoxelsGrid<uint32_t, true>;
-using VoxelsGrid64bitDev = VoxelsGrid<uint64_t, true>;    
-
+using DeviceVoxelsGrid8bit  = DeviceVoxelsGrid<uint8_t>;
+using DeviceVoxelsGrid16bit = DeviceVoxelsGrid<uint16_t>;
 using DeviceVoxelsGrid32bit = DeviceVoxelsGrid<uint32_t>;
 using DeviceVoxelsGrid64bit = DeviceVoxelsGrid<uint64_t>;
 

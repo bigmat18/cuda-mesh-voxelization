@@ -3,8 +3,8 @@
 #include <span>
 #include <utility>
 
-#include "debug_utils.h"
-#include "mesh.h"
+#include <debug_utils.h>
+#include <mesh/mesh.h>
 
 #ifndef BOUNDING_BOX_H
 
