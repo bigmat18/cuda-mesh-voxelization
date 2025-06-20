@@ -45,15 +45,13 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
     mesh.Colors.reserve(mesh.VerticesSize());
     mesh.Colors.assign(mesh.VerticesSize(), Color(1.0f, 1.0f, 1.0f, 1.0f));
 
-    #ifdef DEBUG
-    for(uint i = 0; i < mesh.Coords.size(); ++i) {
+    #if 0
+    for(uint i = 0; i < mesh.Coords.size(); ++i)
         LOG_INFO("%d: %f %f %f", i, mesh.Coords[i].X, mesh.Coords[i].Y, mesh.Coords[i].Z);
-    }
 
-    for (uint i=0; i< mesh.FacesCoords.size(); i+= 3) {
+    for (uint i=0; i< mesh.FacesCoords.size(); i+= 3)
         LOG_INFO("%d %d %d", mesh.FacesCoords[i], mesh.FacesCoords[i+1], mesh.FacesCoords[i+2]);
-    }
-    #endif // DEBUG
+    #endif
 
     return true;
 }

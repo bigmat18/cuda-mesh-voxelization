@@ -4,51 +4,46 @@
 #include <bounding_box.h>
 #include <voxels_grid.h>
 #include <voxelization/voxelization.h>
+#include <profiling.h>
 
 
 int main(int argc, char **argv) {
+    int device = 0;
+    cudaSetDevice(device);
+
     cpuAssert((argc >= 3), "Need two mesh parameter [input file] [output file]\n");
 
     Mesh mesh;
     cpuAssert(ImportMesh(argv[1], mesh), "Error in mesh import");
 
     std::pair<float, float> bbX, bbY, bbZ;
-    const float sideLength = CalculateBoundingBox(
+    float sideLength = 0.0f;
+
+    sideLength = CalculateBoundingBox(
         std::span<Position>(&mesh.Coords[0], mesh.Coords.size()), 
         bbX, bbY, bbZ 
     );
+    
 
-    const size_t voxelsPerSide = 128;
+    const size_t voxelsPerSide = 256;
     DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
     devGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
 
-    int device = 0;
-    cudaSetDevice(device);
+    HostVoxelsGrid32bit hostGrid(devGrid);
+    Voxelization::Compute<Voxelization::Types::SEQUENTIAL>(
+        hostGrid, mesh
+    );
 
     Voxelization::Compute<Voxelization::Types::NAIVE, uint32_t>(
         devGrid, mesh, device, 256
     );
 
-    HostVoxelsGrid32bit hostGrid(devGrid);
-
-    /*#ifdef DEBUG*/
-    /*for (int i = 0; i < hostGrid.View().VoxelsPerSide(); ++i) {*/
-        /*for (int j = 0; j < hostGrid.View().VoxelsPerSide(); ++j) {*/
-            /*for (int k = 0; k < hostGrid.View().VoxelsPerSide(); ++k) {*/
-                /*std::cout << hostGrid.View()(k, j, i) << " ";*/
-            /*}*/
-            /*std::cout << std::endl;*/
-        /*}*/
-        /*std::cout << std::endl;*/
-    /*}*/
-    /*#endif // DEBUG*/
-   
-    VoxelsGridToMesh(hostGrid.View(), mesh);
-
-    if(!ExportMesh(argv[2], mesh)) {
-        LOG_ERROR("Error in mesh export");
-        return -1;
-    }
+    //HostVoxelsGrid32bit hostGrid(devGrid);   
+    //VoxelsGridToMesh(hostGrid.View(), mesh);
+    //if(!ExportMesh(argv[2], mesh)) {
+        //LOG_ERROR("Error in mesh export");
+        //return -1;
+    //}
 
 
     return 0;

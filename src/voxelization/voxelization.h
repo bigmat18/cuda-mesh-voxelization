@@ -1,9 +1,11 @@
 #ifndef VOXELIZATION_H
 #define VOXELIZATION_H
 
+#include "profiling.h"
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
+#include <vector>
 #include <voxels_grid.h>
 #include <mesh/mesh.h>
 #include <cuda_runtime.h>
@@ -17,7 +19,7 @@ CalculateEdgeTerms(Position& V0, Position& V1) {
     return {A, B, C};
 }
 
-__device__ __device__ inline float 
+__device__ __host__ inline float 
 CalculateEdgeFunction(float A, float B, float C, float y, float z)
 { return (A * y) + (B * z) + C; }
 
@@ -26,6 +28,11 @@ template <typename T>
 __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords, 
                             Position* coords, VoxelsGrid<T, true> grid);
 
+
+template <typename T>
+__host__ void Sequential(VoxelsGrid<T, false>& grid, 
+                         const std::vector<uint32_t>& triangleCoords,
+                         const std::vector<Position>& coords);
 
 class Voxelization {
 
@@ -63,6 +70,8 @@ public:
     static void Compute(HostVoxelsGrid<T>& grid, const Mesh& mesh) 
     requires (type == Types::SEQUENTIAL)
     {
+        PROFILING_SCOPE("Sequential Voxelization");
+        Sequential<T>(grid.View(), mesh.FacesCoords, mesh.Coords);
     }
 
 
@@ -70,6 +79,7 @@ public:
     static void Compute(DeviceVoxelsGrid<T>& grid, const Mesh& mesh, int device, int blockSize) 
     requires (type == Types::NAIVE)
     {
+        PROFILING_SCOPE("Naive Voxelization");
         const size_t trianglesSize = mesh.FacesSize() * 2;  
         auto[gridSize, devTriangles, devCoords] = InitKernel(mesh, device, blockSize, trianglesSize);
         NaiveKernel<T><<< gridSize, blockSize >>>(trianglesSize, devTriangles, devCoords, grid.View());

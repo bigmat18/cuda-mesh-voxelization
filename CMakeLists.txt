@@ -25,6 +25,12 @@ target_include_directories(main PUBLIC "${SRC_DIR}")
 target_compile_features(main PRIVATE cxx_std_23)
 target_compile_features(main PRIVATE cuda_std_20)
 
+option(LOGGING "Turn on Log message" ON)
+option(PROFILING "Turn on Profiling message" ON)
+
+target_compile_definitions(main PRIVATE LOGGING=$<BOOL:${LOGGING}>)
+target_compile_definitions(main PRIVATE PROFILING=$<BOOL:${PROFILING}>)
+
 target_compile_options(main PRIVATE
     $<$<CONFIG:Release>:-O3 -DNDEBUG>
     $<$<CONFIG:Debug>:-g -O0 --expt-relaxed-constexpr>

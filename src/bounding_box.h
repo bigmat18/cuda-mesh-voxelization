@@ -7,7 +7,7 @@
 #include <mesh/mesh.h>
 
 #ifndef BOUNDING_BOX_H
-
+#define BOUNDING_BOX_H
 
 template<bool device = false> __host__ __device__ 
 float CalculateBoundingBox(std::span<Position> coordinates,
@@ -34,11 +34,12 @@ float CalculateBoundingBox(std::span<Position> coordinates,
             else if(coordinates[i].Z > maxZ) maxZ= coordinates[i].Z;
         }
         
-        #ifdef DEBUG 
+        #if 0
         LOG_INFO("minX: %f, maxX: %f", minX, maxX);
         LOG_INFO("minY: %f, maxY: %f", minY, maxY); 
         LOG_INFO("minZ: %f, maxZ: %f", minZ, maxZ);
-        #endif // DEBUG
+        #endif
+
 
         if (minmaxX) minmaxX->get() = {minX, maxX};
         if (minmaxY) minmaxY->get() = {minY, maxY};

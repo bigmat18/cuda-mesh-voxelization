@@ -56,7 +56,6 @@ __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords,
             }
         }
     }
-
 }
 
 

@@ -20,12 +20,16 @@ __host__ __device__ inline const char* getCurrentTimestamp() {
     #endif
 }
 
+#if LOGGING 
 #define LOG_INTERNAL(level_str, format, ...)                               \
 {                                                                          \
     printf("[%s] [%s] [%s:%d] " format "\n",                               \
-            getCurrentTimestamp(), level_str, __FILE__, __LINE__,  \
-            ##__VA_ARGS__);                                                \
+           getCurrentTimestamp(), level_str, __FILE__, __LINE__,  \
+           ##__VA_ARGS__);                                                \
 }
+#else 
+#define LOG_INTERNAL(level_str, format, ...)
+#endif // LOGGING 
 
 #define LOG_ERROR(format, ...) LOG_INTERNAL("ERROR", format, ##__VA_ARGS__)
 
