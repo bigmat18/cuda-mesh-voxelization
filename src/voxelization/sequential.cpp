@@ -12,10 +12,6 @@ template <typename T>
         Position V1 = coords[triangleCoords[(i * 3) + 1]];
         Position V2 = coords[triangleCoords[(i * 3) + 2]];
             
-        auto [A0, B0, C0] = CalculateEdgeTerms(V0, V1);
-        auto [A1, B1, C1] = CalculateEdgeTerms(V1, V2);
-        auto [A2, B2, C2] = CalculateEdgeTerms(V2, V0);
-
         Position facesVertices[3] = {V0, V1, V2};
         std::pair<float, float> BB_X, BB_Y, BB_Z;
         CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
@@ -37,9 +33,9 @@ template <typename T>
                 float centerY = grid.OriginY() + ((y * grid.VoxelSize()) + (grid.VoxelSize() / 2));
                 float centerZ = grid.OriginZ() + ((z * grid.VoxelSize()) + (grid.VoxelSize() / 2));
 
-                float E0 = CalculateEdgeFunction(A0, B0, C0, centerY, centerZ);
-                float E1 = CalculateEdgeFunction(A1, B1, C1, centerY, centerZ);
-                float E2 = CalculateEdgeFunction(A2, B2, C2, centerY, centerZ);
+                float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ);
+                float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ);
+                float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ);
 
                 bool ccw_test = (E0 >= 0 && E1 >= 0 && E2 >= 0);
                 bool cw_test = (E0 <= 0 && E1 <= 0 && E2 <= 0);

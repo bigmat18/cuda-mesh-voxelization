@@ -41,7 +41,11 @@ private:
 
 template <typename T = float> 
 struct Vec3 {
-    T X, Y, Z;
+    T X = 0; 
+    T Y = 0;
+    T Z = 0;
+
+    __host__ __device__ Vec3() = default;
 
     __host__ __device__ Vec3(T x, T y, T z) : X(x), Y(y), Z(z) {}
 
@@ -87,6 +91,11 @@ struct Vec3 {
       X -= v.X; Y -= v.Y; Z -= v.Z;
       return *this;
      }
+
+    __host__ __device__ Vec3<T> &operator*=(T scalar) {
+      X *= scalar; Y *= scalar; Z *= scalar;
+      return *this;
+    }
 
     __host__ __device__ Vec3<T> &operator/=(T scalar) {
       X /= scalar; Y /= scalar; Z /= scalar;
