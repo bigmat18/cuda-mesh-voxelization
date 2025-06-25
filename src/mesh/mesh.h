@@ -115,7 +115,7 @@ struct Vec3 {
       return (v0.X * v1.X + v0.Y * v1.Y + v0.Z * v1.Z);
     }
 
-    __host__ __device__ static inline std::tuple<T, T, T>
+    __host__ __device__ static inline Vec3<T>
     Cross(const Vec3<T> &v0, const Vec3<T> &v1) {
       float resX_pos = (v0.Y * v1.Z) - (v0.Z * v1.Y);
       float resY_pos = (v0.Z * v1.X) - (v0.X * v1.Z);

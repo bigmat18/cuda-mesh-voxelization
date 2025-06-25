@@ -32,14 +32,18 @@ __device__ __host__ inline Position
 CalculateNormalOfEdgeFunction(Position& V0, Position& V1)
 { return Position(0, V1.Z - V0.Z, -(V1.Y - V0.Y));}
 
-__device__ __host__ inline float
-CalculateVerticesOrientation(Position& V0, Position& V1, Position& V2)
-{ return ((V1.Z - V0.Z) * (V2.Y - V0.Y)) - ((V1.Y - V0.Y) * (V2.Z - V0.Z)); }
+//__device__ __host__ inline float
+//CalculateVerticesOrientation(Position& V0, Position& V1, Position& V2)
+//{ return ((V1.Z - V0.Z) * (V2.Y - V0.Y)) - ((V1.Y - V0.Y) * (V2.Z - V0.Z)); }
+
+__device__ __host__ inline Normal 
+CalculateFaceNormal(Position& V0, Position& V1, Position& V2)
+{ return Vec3<float>::Cross(V1 - V0, V2 - V1); }
 
 
 template <typename T>
 __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords, 
-                            Position* coords, VoxelsGrid<T, true> grid);
+                            Position* coords, uint32_t* overlapPerTriangle, VoxelsGrid<T, true> grid);
 
 
 template <typename T>
@@ -49,7 +53,7 @@ __host__ void Sequential(VoxelsGrid<T, false>& grid,
 
 template <typename T>
 __global__ void TiledCalculateOverlap(const size_t numTriangles, uint32_t* triangleCoords,
-                                      Position* coords, uint32_t* overlapPerTriangle,
+                                      Position* coords, Normal* normals, uint32_t* overlapPerTriangle,
                                       VoxelsGrid<T, true> grid)
 {
  
@@ -61,12 +65,20 @@ __global__ void TiledCalculateOverlap(const size_t numTriangles, uint32_t* trian
     Position V1 = coords[triangleCoords[(index * 3) + 1]];
     Position V2 = coords[triangleCoords[(index * 3) + 2]];
 
-    float orientation = CalculateVerticesOrientation(V0, V1, V2);
-    int sign = 2 * (orientation < 0) - 1;
+    //Normal n0 = normals[triangleCoords[(index * 3)]];
+    //Normal n1 = normals[triangleCoords[(index * 3) + 1]];
+    //Normal n2 = normals[triangleCoords[(index * 3) + 2]];
 
-    //LOG_INFO("%d: %f\nV0: %f, %f, %f\nV1: %f, %f, %f\nV2: %f, %f, %f", index, orientation,
-             //V0.X, V0.Y, V0.Z, V1.X, V1.Y, V1.Z, V2.X, V2.Y, V2.Z);
-    
+    //Normal nn = (n0 + n1 + n2) / 3; 
+    //int sign2 = 2 * (nn.X >= 0) - 1;
+
+    Normal normal = CalculateFaceNormal(V0, V1, V2);
+    int sign = 2 * (normal.X >= 0) - 1;
+
+
+    //LOG_INFO("%d: avg: %f %d det: %f %d\nV0: %f, %f, %f N0: %f %f %f\nV1: %f, %f, %f N1: %f, %f, %f\nV2: %f, %f, %f N2:%f, %f, %f", index, normal.X, sign, nn.X, sign2,
+             //V0.X, V0.Y, V0.Z, n0.X, n0.Y, n0.Z, V1.X, V1.Y, V1.Z, n1.X, n1.Y, n1.Z, V2.X, V2.Y, V2.Z, n2.X, n2.Y, n2.Z);
+ 
     Position facesVertices[3] = {V0, V1, V2};
     std::pair<float, float> BB_X, BB_Y, BB_Z;
     CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
@@ -91,30 +103,49 @@ __global__ void TiledCalculateOverlap(const size_t numTriangles, uint32_t* trian
             float maxY = minY + tileSize;
             float maxZ = minZ + tileSize;
 
-            float E0 = CalculateEdgeFunction(V0, V1, N0.Y > 0 ? minY : maxY, N0.Z > 0 ? minZ : maxZ) * sign;
-            float E1 = CalculateEdgeFunction(V1, V2, N1.Y > 0 ? minY : maxY, N1.Z > 0 ? minZ : maxZ) * sign;
-            float E2 = CalculateEdgeFunction(V2, V0, N2.Y > 0 ? minY : maxY, N2.Z > 0 ? minZ : maxZ) * sign;
+            //float E0 = CalculateEdgeFunction(V0, V1, N0.Y >= 0 ? minY : maxY, N0.Z >= 0 ? minZ : maxZ) * sign;
+            //float E1 = CalculateEdgeFunction(V1, V2, N1.Y >= 0 ? minY : maxY, N1.Z >= 0 ? minZ : maxZ) * sign;
+            //float E2 = CalculateEdgeFunction(V2, V0, N2.Y >= 0 ? minY : maxY, N2.Z >= 0 ? minZ : maxZ) * sign;
 
-            if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
-                numOverlap++;
+            bool continueLoop = true;
+            for(int i = 0; continueLoop && i < 2; i++) {
+                for (int j = 0; continueLoop && j < 2; j++) {
+                    
+                    float E0 = CalculateEdgeFunction(V0, V1, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    float E1 = CalculateEdgeFunction(V1, V2, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    float E2 = CalculateEdgeFunction(V2, V0, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+
+                    if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
+                        numOverlap++;
+                        continueLoop = false;
+
+                        //for(int i = 0; i < 4; ++i)
+                            //for(int j=0; j<4; ++j)
+                                //grid(0, (y*4) + i, (z*4)+j) = true;
+                    }
+                }
+            }
+
+            //if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
+                //numOverlap++;
                 //for(int i = 0; i < 4; ++i)
                     //for(int j=0; j<4; ++j)
                         //grid(0, (y*4) + i, (z*4)+j) = true;
-            }
+            //}
         }
     }
 
     overlapPerTriangle[index] = numOverlap;
 
-    //__syncthreads();
-    //if (index == 1) {
-        //int counter = 0;
-        //for(int i=0; i<numTriangles; i++) {
-            //LOG_INFO("%d: %d", i, overlapPerTriangle[i]);
-            //counter+= overlapPerTriangle[i];
-        //}
-        //LOG_INFO("%d", counter);
-    //}
+    __syncthreads();
+    if (index == 1) {
+        int counter = 0;
+        for(int i=0; i<numTriangles; i++) {
+            LOG_INFO("%d: %d", i, overlapPerTriangle[i]);
+            counter+= overlapPerTriangle[i];
+        }
+        LOG_INFO("%d", counter);
+    }
 }
 
 template <typename T>
@@ -131,21 +162,25 @@ __global__ void TiledWorkQueuePopulation(const size_t numTriangles, uint32_t* tr
     Position V1 = coords[triangleCoords[(index * 3) + 1]];
     Position V2 = coords[triangleCoords[(index * 3) + 2]];
         
-    Position facesVertices[3] = {V0, V1, V2};
-    std::pair<float, float> BB_X, BB_Y, BB_Z;
-    CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
+
+    Normal normal = CalculateFaceNormal(V0, V1, V2);
+    int sign = 2 * (normal.X >= 0) - 1;
 
     const float tileSize = grid.VoxelSize() * 4;
     const uint tilePerSide = grid.VoxelsPerSide() / 4;
+
+    Position facesVertices[3] = {V0, V1, V2};
+    std::pair<float, float> BB_X, BB_Y, BB_Z;
+    CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
     int startY = static_cast<int>(std::floorf((BB_Y.first - grid.OriginY()) / tileSize));
     int endY   = static_cast<int>(std::ceilf((BB_Y.second - grid.OriginY()) / tileSize));
     int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / tileSize));
     int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / tileSize));
 
-    Position N0 = CalculateNormalOfEdgeFunction(V0, V1);
-    Position N1 = CalculateNormalOfEdgeFunction(V1, V2);
-    Position N2 = CalculateNormalOfEdgeFunction(V2, V0);
+    //Position N0 = CalculateNormalOfEdgeFunction(V0, V1);
+    //Position N1 = CalculateNormalOfEdgeFunction(V1, V2);
+    //Position N2 = CalculateNormalOfEdgeFunction(V2, V0);
 
     int numOverlap = 0;
     for(int y = startY; y < endY; ++y)
@@ -157,22 +192,36 @@ __global__ void TiledWorkQueuePopulation(const size_t numTriangles, uint32_t* tr
             float maxY = minY + tileSize;
             float maxZ = minZ + tileSize;
 
-            float E0 = CalculateEdgeFunction(V0, V1, N0.Y > 0 ? minY : maxY, N0.Z > 0 ? minZ : maxZ);
-            float E1 = CalculateEdgeFunction(V1, V2, N1.Y > 0 ? minY : maxY, N1.Z > 0 ? minZ : maxZ);
-            float E2 = CalculateEdgeFunction(V2, V0, N2.Y > 0 ? minY : maxY, N2.Z > 0 ? minZ : maxZ);
+            //float E0 = CalculateEdgeFunction(V0, V1, N0.Y > 0 ? minY : maxY, N0.Z > 0 ? minZ : maxZ) * sign;
+            //float E1 = CalculateEdgeFunction(V1, V2, N1.Y > 0 ? minY : maxY, N1.Z > 0 ? minZ : maxZ) * sign;
+            //float E2 = CalculateEdgeFunction(V2, V0, N2.Y > 0 ? minY : maxY, N2.Z > 0 ? minZ : maxZ) * sign;
 
-            bool ccw_test = (E0 >= 0 && E1 >= 0 && E2 >= 0);
-            bool cw_test = (E0 <= 0 && E1 <= 0 && E2 <= 0);
 
-            if (ccw_test || cw_test) {
-                workQueueKeys[offsets[index] + numOverlap] = (z * tilePerSide) + y;
-                workQueueValues[offsets[index] + numOverlap] = index;
-                numOverlap++;
+            bool continueLoop = true;
+            for(int i = 0; continueLoop && i < 2; i++) {
+                for (int j = 0; continueLoop && j < 2; j++) {
+                    
+                    float E0 = CalculateEdgeFunction(V0, V1, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    float E1 = CalculateEdgeFunction(V1, V2, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    float E2 = CalculateEdgeFunction(V2, V0, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
 
-                //for(int i = 0; i < 4; ++i)
-                    //for(int j=0; j<4; ++j)
-                        //grid(0, (y*4) + i, (z*4)+j) = true;
+                    if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
+                        continueLoop = false;
+                        workQueueKeys[offsets[index] + numOverlap] = (y * tilePerSide) + z;
+                        workQueueValues[offsets[index] + numOverlap] = index;
+                        numOverlap++;
+                    }
+                }
             }
+            //if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
+                //workQueueKeys[offsets[index] + numOverlap] = (y * tilePerSide) + z;
+                //workQueueValues[offsets[index] + numOverlap] = index;
+                //numOverlap++;
+
+                ////for(int i = 0; i < 4; ++i)
+                    ////for(int j=0; j<4; ++j)
+                        ////grid(0, (y*4) + i, (z*4)+j) = true;
+            //}
         }
     }
 
@@ -189,9 +238,6 @@ __global__ void TiledProcessing(uint32_t* triangleCoords, Position* coords, uint
                                 uint32_t* activeTilesList, uint32_t* activeTilesListTriangleCount,
                                 uint32_t* activeTilesListOffset, VoxelsGrid<T, true> grid)
 {
-    if (threadIdx.x >= 16)
-        return;
-
     __shared__ Position sharedVertices[BATCH_SIZE * 3];
     
     const int activeTileIndex = blockIdx.x;
@@ -249,27 +295,32 @@ __global__ void TiledProcessing(uint32_t* triangleCoords, Position* coords, uint
             Position V1 = sharedVertices[(triangle * 3) + 1];
             Position V2 = sharedVertices[(triangle * 3) + 2];
 
-            float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ);
-            float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ);
-            float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ);
+            Normal normal = CalculateFaceNormal(V0, V1, V2);
+            int sign = 2 * (normal.X >= 0) - 1;
 
-            bool ccw_test = (E0 >= 0 && E1 >= 0 && E2 >= 0);
-            bool cw_test = (E0 <= 0 && E1 <= 0 && E2 <= 0);
+            float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ) * sign;
+            float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ) * sign;
+            float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ) * sign;
 
-            if (ccw_test || cw_test) {
+            if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
                 //grid(0, y, z) = true;
-                //Position edge0 = V1 - V0;
-                //Position edge1 = V2 - V0;
+                Position edge0 = V1 - V0;
+                Position edge1 = V2 - V0;
 
-                //auto [A, B, C] = Position::Cross(edge0, edge1);
-                //float D = Position::Dot({A, B, C}, V0);
+                //LOG_INFO("%f:\nV0:(%f,%f,%f)\nV1:(%f,%f,%f)\nV2:(%f,%f,%f)\n(x,%f,%f)", 
+                         //orientation,V0.X, V0.Y, V0.Z, V1.X, V1.Y, V1.Z, V2.X, V2.Y, V2.Z, centerY, centerZ);
 
-                //float intersection = (D - (B * centerY) - (C * centerZ)) / A;
+                auto [A, B, C] = Position::Cross(edge0, edge1);
+                //A*=-sign; B*=-sign; C*=-sign;
 
-                //int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
-                //int endX = grid.VoxelsPerSide();
-                //for(int x = startX; x < endX; ++x)
-                //grid(x, y, z) ^= true;
+                float D = Position::Dot({A, B, C}, V0);
+                float intersection = ((D - (B * centerY) - (C * centerZ)) / A);
+
+                int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
+                int endX = grid.VoxelsPerSide();
+
+                for(int x = startX; x < endX; ++x)
+                    grid(x, y, z) ^= true;
             }
         }
         __syncthreads();
@@ -319,9 +370,14 @@ public:
     requires (type == Types::NAIVE)
     {
         PROFILING_SCOPE("Naive Voxelization");
-        const size_t trianglesSize = mesh.FacesSize() * 2;  
-        auto[gridSize, devTriangles, devCoords] = InitKernel(mesh, device, blockSize, trianglesSize);
-        NaiveKernel<T><<< gridSize, blockSize >>>(trianglesSize, devTriangles, devCoords, grid.View());
+        const size_t numTriangles = mesh.FacesSize() * 2;  
+        auto[gridSize, devTriangles, devCoords] = InitKernel(mesh, device, blockSize, numTriangles);
+
+        uint32_t* devOverlapPerTriangle;  
+        gpuAssert(cudaMalloc((void**) &devOverlapPerTriangle, numTriangles * sizeof(uint32_t)));
+        gpuAssert(cudaMemset(devOverlapPerTriangle, 0, numTriangles * sizeof(uint32_t)));
+
+        NaiveKernel<T><<< gridSize, blockSize >>>(numTriangles, devTriangles, devCoords, devOverlapPerTriangle, grid.View());
         WaitKernel(devTriangles, devCoords);
     }
 
@@ -344,11 +400,15 @@ public:
         gpuAssert(cudaMalloc((void**) &devCoords, mesh.Coords.size() * sizeof(Position)));
         gpuAssert(cudaMemcpy(devCoords, &mesh.Coords[0], mesh.Coords.size() * sizeof(Position), cudaMemcpyHostToDevice));
 
-        uint32_t* devOverlapPerTriangle;
+        Position* devNormals;
+        gpuAssert(cudaMalloc((void**) &devNormals, mesh.Normals.size() * sizeof(Normal)));
+        gpuAssert(cudaMemcpy(devNormals, &mesh.Normals[0], mesh.Coords.size() * sizeof(Normal), cudaMemcpyHostToDevice));
+  
+        uint32_t* devOverlapPerTriangle;  
         gpuAssert(cudaMalloc((void**) &devOverlapPerTriangle, numTriangles * sizeof(uint32_t)));
         gpuAssert(cudaMemset(devOverlapPerTriangle, 0, numTriangles * sizeof(uint32_t)));
     
-        TiledCalculateOverlap<T><<< gridSize, blockSize >>>(numTriangles, devTriangles, devCoords, devOverlapPerTriangle, grid.View());
+        TiledCalculateOverlap<T><<< gridSize, blockSize >>>(numTriangles, devTriangles, devCoords, devNormals, devOverlapPerTriangle, grid.View());
         cudaDeviceSynchronize();
         // ----- Calculate Number of tiles overlap for each triangle -----    
 
@@ -439,7 +499,7 @@ public:
         //uint32_t* devActiveTilesNum;
         //uint32_t* devActiveTilesTrianglesCount;
         //const int NUM_TILED = (grid.View().VoxelsPerSide() * grid.View().VoxelsPerSide()) / 4;
-        //LOG_INFO("%d", NUM_TILED);
+        //LOG_INFO("Total tiled number: %d", NUM_TILED);
 
         //gpuAssert(cudaMalloc((void**) &devActiveTilesList, NUM_TILED * sizeof(uint32_t)));
         //gpuAssert(cudaMalloc((void**) &devActiveTilesTrianglesCount, NUM_TILED * sizeof(uint32_t)));
@@ -472,7 +532,7 @@ public:
         //gpuAssert(cudaMalloc((void**) &devActiveTilesOffset, numActiveTiles * sizeof(uint32_t)));
 
 
-        //LOG_INFO("%d", numActiveTiles);
+        //LOG_INFO("Num tiled Active: %d", numActiveTiles);
         //cub::DeviceScan::ExclusiveSum(
             //devTempStorage, tempStorageBytes,
             //devActiveTilesTrianglesCount, 
@@ -505,7 +565,7 @@ public:
         //}
         //// ----- From workQueueKey sorted we calculate activeTilesList, activeTilesOffset -----
 
-        //TiledProcessing<T><<< numActiveTiles, 32 >>>(
+        //TiledProcessing<T><<< numActiveTiles, 16 >>>(
             //devTriangles, devCoords, 
             //devWorkQueueValuesSorted, 
             //devActiveTilesList, 

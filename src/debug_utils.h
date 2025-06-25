@@ -20,6 +20,14 @@ __host__ __device__ inline const char* getCurrentTimestamp() {
     #endif
 }
 
+__device__ __host__
+constexpr std::string_view file_name(std::string_view path) {
+    size_t pos = path.find_last_of("/\\");
+    return (pos == std::string_view::npos) ? path : path.substr(pos + 1);
+}
+
+#define __FILENAME__ file_name(__FILE__).data()
+
 #if LOGGING 
 #define LOG_INTERNAL(level_str, format, ...)                               \
 {                                                                          \

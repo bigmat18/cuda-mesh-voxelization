@@ -12,6 +12,9 @@ template <typename T>
         Position V1 = coords[triangleCoords[(i * 3) + 1]];
         Position V2 = coords[triangleCoords[(i * 3) + 2]];
             
+        Normal normal = CalculateFaceNormal(V0, V1, V2);
+        int sign = 2 * (normal.X >= 0) - 1;
+
         Position facesVertices[3] = {V0, V1, V2};
         std::pair<float, float> BB_X, BB_Y, BB_Z;
         CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
@@ -32,15 +35,12 @@ template <typename T>
             {
                 float centerY = grid.OriginY() + ((y * grid.VoxelSize()) + (grid.VoxelSize() / 2));
                 float centerZ = grid.OriginZ() + ((z * grid.VoxelSize()) + (grid.VoxelSize() / 2));
-
-                float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ);
-                float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ);
-                float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ);
-
-                bool ccw_test = (E0 >= 0 && E1 >= 0 && E2 >= 0);
-                bool cw_test = (E0 <= 0 && E1 <= 0 && E2 <= 0);
-                
-                if (ccw_test || cw_test) {
+    
+                float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ) * sign;
+                float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ) * sign;
+                float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ) * sign;
+ 
+                if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
                     float intersection = (D - (B * centerY) - (C * centerZ)) / A;
 
                     int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());

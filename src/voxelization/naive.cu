@@ -1,10 +1,11 @@
+#include <cstdint>
 #include <span>
 #include <voxelization/voxelization.h>
 #include <bounding_box.h>
 
 template <typename T>
 __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords, 
-                            Position* coords, VoxelsGrid<T, true> grid)
+                            Position* coords, uint32_t* overlapPerTriangle, VoxelsGrid<T, true> grid)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index >= trianglesSize)
@@ -13,6 +14,9 @@ __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords,
     Position V0 = coords[triangleCoords[(index * 3)]];
     Position V1 = coords[triangleCoords[(index * 3) + 1]];
     Position V2 = coords[triangleCoords[(index * 3) + 2]];
+
+    Normal normal = CalculateFaceNormal(V0, V1, V2);
+    int sign = 2 * (normal.X >= 0) - 1;
         
     Position facesVertices[3] = {V0, V1, V2};
     std::pair<float, float> BB_X, BB_Y, BB_Z;
@@ -28,6 +32,7 @@ __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords,
     auto [A, B, C] = Position::Cross(edge0, edge1);
     float D = Position::Dot({A, B, C}, V0);
 
+    int overlap = 0; 
     for(int y = startY; y < endY; ++y)
     {
         for(int z = startZ; z < endZ; ++z)
@@ -35,14 +40,13 @@ __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords,
             float centerY = grid.OriginY() + ((y * grid.VoxelSize()) + (grid.VoxelSize() / 2));
             float centerZ = grid.OriginZ() + ((z * grid.VoxelSize()) + (grid.VoxelSize() / 2));
 
-            float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ);
-            float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ);
-            float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ);
+            float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ) * sign;
+            float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ) * sign;
+            float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ) * sign;
+ 
+            if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
 
-            bool ccw_test = (E0 >= 0 && E1 >= 0 && E2 >= 0);
-            bool cw_test = (E0 <= 0 && E1 <= 0 && E2 <= 0);
-            
-            if (ccw_test || cw_test) {
+                overlap++;
                 float intersection = (D - (B * centerY) - (C * centerZ)) / A;
 
                 int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
@@ -52,9 +56,21 @@ __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords,
             }
         }
     }
+    overlapPerTriangle[index] = overlap;
+
+
+    __syncthreads();
+    if (index == 1) {
+        int counter = 0;
+        for(int i=0; i<trianglesSize; i++) {
+            LOG_INFO("%d: %d", i, overlapPerTriangle[i]);
+            counter+= overlapPerTriangle[i];
+        }
+        LOG_INFO("%d", counter);
+    }
 }
 
 
 template __global__ void NaiveKernel<uint32_t>
- (size_t, uint32_t*, Position*, VoxelsGrid<uint32_t, true>);
+ (size_t, uint32_t*, Position*, uint32_t*, VoxelsGrid<uint32_t, true>);
 
