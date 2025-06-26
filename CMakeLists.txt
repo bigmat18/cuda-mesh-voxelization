@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(cuda_voxelization LANGUAGES CXX CUDA)
 
+
 set(LIBS_DIR "${PROJECT_SOURCE_DIR}/libs")
 set(SRC_DIR "${PROJECT_SOURCE_DIR}/src")
 
@@ -18,6 +19,7 @@ file(GLOB_RECURSE CU_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cu")
 
 add_executable(main ${CPP_FILES} ${CU_FILES})
 set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CUDA)
+#set_target_properties(main PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 target_include_directories(main PUBLIC "${LIBS_DIR}" "${SRC_DIR}" cublas)
 

@@ -8,6 +8,9 @@
 #include <profiling.h>
 
 #define EXPORT 1
+#define ACTIVE_SEQUENTIAL 1
+#define ACTIVE_NAIVE 1
+#define ACTIVE_TILED 1
 
 int main(int argc, char **argv) {
     int device = 0; cudaSetDevice(device);
@@ -26,7 +29,7 @@ int main(int argc, char **argv) {
 
     const size_t voxelsPerSide = atoi(argv[3]);
 
-    #if 1
+    #if ACTIVE_SEQUENTIAL 
     {
         HostVoxelsGrid32bit hostGrid(voxelsPerSide, sideLength);
         hostGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
@@ -46,7 +49,7 @@ int main(int argc, char **argv) {
     } 
     #endif 
 
-    #if 1
+    #if ACTIVE_NAIVE
     {
         DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
         devGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
@@ -67,21 +70,21 @@ int main(int argc, char **argv) {
     }
     #endif
 
-    #if 1
+    #if ACTIVE_TILED
     {
         DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
         devGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
 
-        Voxelization::Compute<Voxelization::Types::TAILED, uint32_t>(
-        devGrid, mesh, device, 256
+        Voxelization::Compute<Voxelization::Types::TILED, uint32_t>(
+            devGrid, mesh, device, 256
         );
 
         #if EXPORT
         Mesh outMesh;
         HostVoxelsGrid32bit hostGrid(devGrid);   
         VoxelsGridToMesh(hostGrid.View(), outMesh);
-        if(!ExportMesh("out/tailed_" + std::string(argv[2]), outMesh)) {
-            LOG_ERROR("Error in tailed mesh export");
+        if(!ExportMesh("out/tiled_" + std::string(argv[2]), outMesh)) {
+            LOG_ERROR("Error in tiled mesh export");
             return -1;
         }
         #endif

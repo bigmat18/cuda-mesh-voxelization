@@ -1,17 +1,19 @@
 #include <voxelization/voxelization.h>
 #include <bounding_box.h>
 
+namespace Voxelization {
+
 template <typename T>
- __host__ void Sequential(VoxelsGrid<T, false> &grid,
-                          const std::vector<uint32_t>& triangleCoords,
-                          const std::vector<Position>& coords)
+__host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
+                         const std::vector<Position>& coords,
+                         VoxelsGrid<T, false>& grid)
 {
     const int numTriangle = triangleCoords.size() / 3;
     for(int i = 0; i < numTriangle; ++i) {
         Position V0 = coords[triangleCoords[(i * 3)]];
         Position V1 = coords[triangleCoords[(i * 3) + 1]];
         Position V2 = coords[triangleCoords[(i * 3) + 2]];
-            
+
         Normal normal = CalculateFaceNormal(V0, V1, V2);
         int sign = 2 * (normal.X >= 0) - 1;
 
@@ -35,11 +37,11 @@ template <typename T>
             {
                 float centerY = grid.OriginY() + ((y * grid.VoxelSize()) + (grid.VoxelSize() / 2));
                 float centerZ = grid.OriginZ() + ((z * grid.VoxelSize()) + (grid.VoxelSize() / 2));
-    
-                float E0 = CalculateEdgeFunction(V0, V1, centerY, centerZ) * sign;
-                float E1 = CalculateEdgeFunction(V1, V2, centerY, centerZ) * sign;
-                float E2 = CalculateEdgeFunction(V2, V0, centerY, centerZ) * sign;
- 
+
+                float E0 = CalculateEdgeFunctionZY(V0, V1, centerY, centerZ) * sign;
+                float E1 = CalculateEdgeFunctionZY(V1, V2, centerY, centerZ) * sign;
+                float E2 = CalculateEdgeFunctionZY(V2, V0, centerY, centerZ) * sign;
+
                 if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
                     float intersection = (D - (B * centerY) - (C * centerZ)) / A;
 
@@ -54,13 +56,15 @@ template <typename T>
 }
 
 template __host__ void Sequential<uint8_t>
-    (VoxelsGrid<uint8_t, false>&, const std::vector<uint32_t>&, const std::vector<Position>&);
+(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint8_t, false>&);
 
 template __host__ void Sequential<uint16_t>
-    (VoxelsGrid<uint16_t, false>&, const std::vector<uint32_t>&, const std::vector<Position>&);
-    
+(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint16_t, false>&);
+
 template __host__ void Sequential<uint32_t>
-    (VoxelsGrid<uint32_t, false>&, const std::vector<uint32_t>&, const std::vector<Position>&);
+(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint32_t, false>&);
 
 template __host__ void Sequential<uint64_t>
-    (VoxelsGrid<uint64_t, false>&, const std::vector<uint32_t>&, const std::vector<Position>&);
+(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint64_t, false>&);
+
+}
