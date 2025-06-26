@@ -7,6 +7,7 @@
 #include <voxelization/voxelization.h>
 #include <profiling.h>
 
+#define EXPORT 1
 
 int main(int argc, char **argv) {
     int device = 0; cudaSetDevice(device);
@@ -34,13 +35,14 @@ int main(int argc, char **argv) {
             hostGrid, mesh
         );   
 
-
+        #if EXPORT
         Mesh outMesh;
         VoxelsGridToMesh(hostGrid.View(), outMesh);
         if(!ExportMesh("out/sequential_" + std::string(argv[2]), outMesh)) {
             LOG_ERROR("Error in sequential mesh export");
             return -1;
         }
+        #endif
     } 
     #endif 
 
@@ -53,14 +55,15 @@ int main(int argc, char **argv) {
             devGrid, mesh, device, 256
         );
 
+        #if EXPORT
         HostVoxelsGrid32bit hostGrid(devGrid);   
-
         Mesh outMesh;
         VoxelsGridToMesh(hostGrid.View(), outMesh);
         if(!ExportMesh("out/naive_" + std::string(argv[2]), outMesh)) {
             LOG_ERROR("Error in naive mesh export");
             return -1;
         }
+        #endif
     }
     #endif
 
@@ -69,11 +72,11 @@ int main(int argc, char **argv) {
         DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
         devGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
 
-
         Voxelization::Compute<Voxelization::Types::TAILED, uint32_t>(
         devGrid, mesh, device, 256
         );
 
+        #if EXPORT
         Mesh outMesh;
         HostVoxelsGrid32bit hostGrid(devGrid);   
         VoxelsGridToMesh(hostGrid.View(), outMesh);
@@ -81,6 +84,7 @@ int main(int argc, char **argv) {
             LOG_ERROR("Error in tailed mesh export");
             return -1;
         }
+        #endif
     }
     #endif
 

@@ -27,7 +27,7 @@ bool ImportMesh(const std::string filename, Mesh& mesh)
         return false;
     }
 
-    LOG_INFO("%s loaded sucessfully", filename.c_str());
+    //LOG_INFO("%s loaded sucessfully", filename.c_str());
     std::string line;
     std::string X, Y, Z, nX, nY, nZ, r, g, b;
 
@@ -74,8 +74,8 @@ bool ImportMesh(const std::string filename, Mesh& mesh)
         }
     }
     
-    LOG_INFO("Mesh sucessfully imported");
     mesh.ShrinkToFit();
+    LOG_INFO("Mesh %s sucessfully imported", filename.c_str());
     return true;
 }
 
@@ -101,14 +101,14 @@ bool ExportMesh(const std::string filename, const Mesh& mesh)
         
         file << "v " << mesh.Coords[i].X << " " << mesh.Coords[i].Y << " " << mesh.Coords[i].Z << " " << r << " " << g << " " << b << "\n";
     }
-    LOG_INFO("Coords are loaded");
+    //LOG_INFO("Coords are loaded");
     file << "\n";
 
     for (size_t i = 0; i < mesh.NormalsSize(); ++i) {
         file << "vn " << mesh.Normals[i].X << " " << mesh.Normals[i].Y << " " << mesh.Normals[i].Z << "\n";
     }
 
-    LOG_INFO("Normals are loades");
+    //LOG_INFO("Normals are loades");
     file << "\n";
 
     for (size_t i = 0; i < mesh.FacesSize() * 6; i += 3) {
@@ -123,7 +123,9 @@ bool ExportMesh(const std::string filename, const Mesh& mesh)
         file << "f " << i1 << "//" << in1 << " " << i2 << "//" << in2 << " " << i3 << "//" << in3 << "\n";
     }
 
-    LOG_INFO("Faces are loaded. Mesh is exported");
+    //LOG_INFO("Faces are loaded.");
+
+    LOG_INFO("Mesh %s sucessfully exported", filename.c_str());
     return true;
 }
 
