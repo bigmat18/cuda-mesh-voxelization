@@ -32,13 +32,22 @@ __device__ __host__ inline Position
 CalculateNormalOfEdgeFunction(Position& V0, Position& V1)
 { return Position(0, V1.Z - V0.Z, -(V1.Y - V0.Y));}
 
-//__device__ __host__ inline float
-//CalculateVerticesOrientation(Position& V0, Position& V1, Position& V2)
-//{ return ((V1.Z - V0.Z) * (V2.Y - V0.Y)) - ((V1.Y - V0.Y) * (V2.Z - V0.Z)); }
+__device__ __host__ inline bool
+CheckPointInsideQuadZY(Position& p, float minZ, float maxZ, float minY, float maxY)
+{ return (p.Z >= minZ && p.Z <= maxZ) && (p.Y >= minY && p.Y <= maxY); }
 
 __device__ __host__ inline Normal 
 CalculateFaceNormal(Position& V0, Position& V1, Position& V2)
 { return Vec3<float>::Cross(V1 - V0, V2 - V1); }
+
+//__device__ __host__ inline bool
+//SATIntersectionTestZY(std::span<Position>& triangle, std::span<Position>& quad)
+//{
+    //for(int i = 0; i < 3; ++i) {
+        //Position normal = CalculateNormalOfEdgeFunction(triangle[i], triangle[(i + 1) % 3]);
+    //}
+
+//}
 
 
 template <typename T>
@@ -89,9 +98,9 @@ __global__ void TiledCalculateOverlap(const size_t numTriangles, uint32_t* trian
     int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / tileSize));
     int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / tileSize));
 
-    Position N0 = CalculateNormalOfEdgeFunction(V0, V1);
-    Position N1 = CalculateNormalOfEdgeFunction(V1, V2);
-    Position N2 = CalculateNormalOfEdgeFunction(V2, V0);
+    Position N0 = CalculateNormalOfEdgeFunction(V0, V1) * sign;
+    Position N1 = CalculateNormalOfEdgeFunction(V1, V2) * sign;
+    Position N2 = CalculateNormalOfEdgeFunction(V2, V0) * sign;
 
     int numOverlap = 0;
     for(int y = startY; y < endY; ++y) 
@@ -103,35 +112,40 @@ __global__ void TiledCalculateOverlap(const size_t numTriangles, uint32_t* trian
             float maxY = minY + tileSize;
             float maxZ = minZ + tileSize;
 
-            //float E0 = CalculateEdgeFunction(V0, V1, N0.Y >= 0 ? minY : maxY, N0.Z >= 0 ? minZ : maxZ) * sign;
-            //float E1 = CalculateEdgeFunction(V1, V2, N1.Y >= 0 ? minY : maxY, N1.Z >= 0 ? minZ : maxZ) * sign;
-            //float E2 = CalculateEdgeFunction(V2, V0, N2.Y >= 0 ? minY : maxY, N2.Z >= 0 ? minZ : maxZ) * sign;
+            float E0 = CalculateEdgeFunction(V0, V1, N0.Y >= 0 ? minY : maxY, N0.Z >= 0 ? minZ : maxZ) * sign;
+            float E1 = CalculateEdgeFunction(V1, V2, N1.Y >= 0 ? minY : maxY, N1.Z >= 0 ? minZ : maxZ) * sign;
+            float E2 = CalculateEdgeFunction(V2, V0, N2.Y >= 0 ? minY : maxY, N2.Z >= 0 ? minZ : maxZ) * sign;
 
-            bool continueLoop = true;
-            for(int i = 0; continueLoop && i < 2; i++) {
-                for (int j = 0; continueLoop && j < 2; j++) {
+            //bool check = CheckPointInsideQuadZY(V0, minZ, maxZ, minY, maxY) || 
+                         //CheckPointInsideQuadZY(V1, minZ, maxZ, minY, maxY) || 
+                         //CheckPointInsideQuadZY(V2, minZ, maxZ, minY, maxY); 
+
+            //bool continueLoop = true;
+            //for(int i = 0; continueLoop && i < 2; i++) {
+                //for (int j = 0; continueLoop && j < 2; j++) {
                     
-                    float E0 = CalculateEdgeFunction(V0, V1, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
-                    float E1 = CalculateEdgeFunction(V1, V2, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
-                    float E2 = CalculateEdgeFunction(V2, V0, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    //float E0 = CalculateEdgeFunction(V0, V1, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    //float E1 = CalculateEdgeFunction(V1, V2, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    //float E2 = CalculateEdgeFunction(V2, V0, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
 
-                    if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
-                        numOverlap++;
-                        continueLoop = false;
+                    
+                    //if (check || (E0 >= 0 && E1 >= 0 && E2 >= 0)) {
+                        //numOverlap++;
+                        //continueLoop = false;
 
-                        //for(int i = 0; i < 4; ++i)
-                            //for(int j=0; j<4; ++j)
-                                //grid(0, (y*4) + i, (z*4)+j) = true;
-                    }
-                }
-            }
+                        ////for(int i = 0; i < 4; ++i)
+                            ////for(int j=0; j<4; ++j)
+                                ////grid(0, (y*4) + i, (z*4)+j) = true;
+                    //}
+                //}
+            //}
 
-            //if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
-                //numOverlap++;
+            if ((E0 >= 0 && E1 >= 0 && E2 >= 0)) {
+                numOverlap++;
                 //for(int i = 0; i < 4; ++i)
                     //for(int j=0; j<4; ++j)
                         //grid(0, (y*4) + i, (z*4)+j) = true;
-            //}
+            }
         }
     }
 
@@ -178,9 +192,9 @@ __global__ void TiledWorkQueuePopulation(const size_t numTriangles, uint32_t* tr
     int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / tileSize));
     int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / tileSize));
 
-    //Position N0 = CalculateNormalOfEdgeFunction(V0, V1);
-    //Position N1 = CalculateNormalOfEdgeFunction(V1, V2);
-    //Position N2 = CalculateNormalOfEdgeFunction(V2, V0);
+    Position N0 = CalculateNormalOfEdgeFunction(V0, V1) * sign;
+    Position N1 = CalculateNormalOfEdgeFunction(V1, V2) * sign;
+    Position N2 = CalculateNormalOfEdgeFunction(V2, V0) * sign;
 
     int numOverlap = 0;
     for(int y = startY; y < endY; ++y)
@@ -192,36 +206,40 @@ __global__ void TiledWorkQueuePopulation(const size_t numTriangles, uint32_t* tr
             float maxY = minY + tileSize;
             float maxZ = minZ + tileSize;
 
-            //float E0 = CalculateEdgeFunction(V0, V1, N0.Y > 0 ? minY : maxY, N0.Z > 0 ? minZ : maxZ) * sign;
-            //float E1 = CalculateEdgeFunction(V1, V2, N1.Y > 0 ? minY : maxY, N1.Z > 0 ? minZ : maxZ) * sign;
-            //float E2 = CalculateEdgeFunction(V2, V0, N2.Y > 0 ? minY : maxY, N2.Z > 0 ? minZ : maxZ) * sign;
+            float E0 = CalculateEdgeFunction(V0, V1, N0.Y > 0 ? minY : maxY, N0.Z > 0 ? minZ : maxZ) * sign;
+            float E1 = CalculateEdgeFunction(V1, V2, N1.Y > 0 ? minY : maxY, N1.Z > 0 ? minZ : maxZ) * sign;
+            float E2 = CalculateEdgeFunction(V2, V0, N2.Y > 0 ? minY : maxY, N2.Z > 0 ? minZ : maxZ) * sign;
+            
 
+            //bool check = CheckPointInsideQuadZY(V0, minZ, maxZ, minY, maxY) || 
+                         //CheckPointInsideQuadZY(V1, minZ, maxZ, minY, maxY) || 
+                         //CheckPointInsideQuadZY(V2, minZ, maxZ, minY, maxY); 
 
-            bool continueLoop = true;
-            for(int i = 0; continueLoop && i < 2; i++) {
-                for (int j = 0; continueLoop && j < 2; j++) {
+            //bool continueLoop = true;
+            //for(int i = 0; continueLoop && i < 2; i++) {
+                //for (int j = 0; continueLoop && j < 2; j++) {
                     
-                    float E0 = CalculateEdgeFunction(V0, V1, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
-                    float E1 = CalculateEdgeFunction(V1, V2, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
-                    float E2 = CalculateEdgeFunction(V2, V0, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    //float E0 = CalculateEdgeFunction(V0, V1, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    //float E1 = CalculateEdgeFunction(V1, V2, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
+                    //float E2 = CalculateEdgeFunction(V2, V0, (maxY * i) + (minY * (1 - i)), (maxZ * j) + (minZ * (1 - j))) * sign;
 
-                    if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
-                        continueLoop = false;
-                        workQueueKeys[offsets[index] + numOverlap] = (y * tilePerSide) + z;
-                        workQueueValues[offsets[index] + numOverlap] = index;
-                        numOverlap++;
-                    }
-                }
-            }
-            //if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
-                //workQueueKeys[offsets[index] + numOverlap] = (y * tilePerSide) + z;
-                //workQueueValues[offsets[index] + numOverlap] = index;
-                //numOverlap++;
-
-                ////for(int i = 0; i < 4; ++i)
-                    ////for(int j=0; j<4; ++j)
-                        ////grid(0, (y*4) + i, (z*4)+j) = true;
+                    //if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
+                        //continueLoop = false;
+                        //workQueueKeys[offsets[index] + numOverlap] = (y * tilePerSide) + z;
+                        //workQueueValues[offsets[index] + numOverlap] = index;
+                        //numOverlap++;
+                    //}
+                //}
             //}
+            if ((E0 >= 0 && E1 >= 0 && E2 >= 0)) {
+                workQueueKeys[offsets[index] + numOverlap] = (y * tilePerSide) + z;
+                workQueueValues[offsets[index] + numOverlap] = index;
+                numOverlap++;
+
+                //for(int i = 0; i < 4; ++i)
+                    //for(int j=0; j<4; ++j)
+                        //grid(0, (y*4) + i, (z*4)+j) = true;
+            }
         }
     }
 
@@ -413,167 +431,167 @@ public:
         // ----- Calculate Number of tiles overlap for each triangle -----    
 
         
-        //// ----- Calculate the hypotetics offset in an array with (tile, triangle) -----
-        //uint32_t* devOffsets;
-        //gpuAssert(cudaMalloc((void**) &devOffsets, numTriangles * sizeof(uint32_t)));
+        // ----- Calculate the hypotetics offset in an array with (tile, triangle) -----
+        uint32_t* devOffsets;
+        gpuAssert(cudaMalloc((void**) &devOffsets, numTriangles * sizeof(uint32_t)));
 
-        //void* devTempStorage = nullptr;
-        //size_t tempStorageBytes = 0;
-        //cub::DeviceScan::ExclusiveSum(
-            //devTempStorage, tempStorageBytes,
-            //devOverlapPerTriangle, devOffsets, numTriangles
-        //);
+        void* devTempStorage = nullptr;
+        size_t tempStorageBytes = 0;
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devOverlapPerTriangle, devOffsets, numTriangles
+        );
 
-        //gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
-        //cub::DeviceScan::ExclusiveSum(
-            //devTempStorage, tempStorageBytes,
-            //devOverlapPerTriangle, devOffsets, numTriangles
-        //);
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devOverlapPerTriangle, devOffsets, numTriangles
+        );
 
-        //cudaDeviceSynchronize();
-        //cudaFree(devTempStorage);
-        //devTempStorage = nullptr;
-        //tempStorageBytes = 0;
-        //// ----- Calculate the hypotetics offset in an array with (tile, triangle) -----
+        cudaDeviceSynchronize();
+        cudaFree(devTempStorage);
+        devTempStorage = nullptr;
+        tempStorageBytes = 0;
+        // ----- Calculate the hypotetics offset in an array with (tile, triangle) -----
 
 
-        //// ----- Alloc two workQueue first for tileId second for triangleId and fill them -----
-        //printf("================ Work queue filled ======================\n");
-        //int lastOverlapTriangle, lastOffset;
-        //gpuAssert(cudaMemcpy(&lastOverlapTriangle, devOverlapPerTriangle + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
-        //gpuAssert(cudaMemcpy(&lastOffset, devOffsets + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
-        //const int workQueueSize = lastOverlapTriangle + lastOffset;
-        //LOG_INFO("%d", workQueueSize);
+        // ----- Alloc two workQueue first for tileId second for triangleId and fill them -----
+        printf("================ Work queue filled ======================\n");
+        int lastOverlapTriangle, lastOffset;
+        gpuAssert(cudaMemcpy(&lastOverlapTriangle, devOverlapPerTriangle + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
+        gpuAssert(cudaMemcpy(&lastOffset, devOffsets + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
+        const int workQueueSize = lastOverlapTriangle + lastOffset;
+        LOG_INFO("%d", workQueueSize);
 
-        //uint32_t* devWorkQueueKeys;
-        //uint32_t* devWorkQueueValues;
-        //gpuAssert(cudaMalloc((void**) &devWorkQueueKeys, workQueueSize * sizeof(uint32_t)));
-        //gpuAssert(cudaMalloc((void**) &devWorkQueueValues, workQueueSize * sizeof(uint32_t)));
+        uint32_t* devWorkQueueKeys;
+        uint32_t* devWorkQueueValues;
+        gpuAssert(cudaMalloc((void**) &devWorkQueueKeys, workQueueSize * sizeof(uint32_t)));
+        gpuAssert(cudaMalloc((void**) &devWorkQueueValues, workQueueSize * sizeof(uint32_t)));
         
-        //TiledWorkQueuePopulation<T><<< gridSize, blockSize >>>(numTriangles, devTriangles, devCoords, devOffsets, devWorkQueueKeys, devWorkQueueValues, grid.View(), workQueueSize);
-        //cudaDeviceSynchronize();
-        //cudaFree(devOverlapPerTriangle);
-        //cudaFree(devOffsets);
-        //// ----- Alloc two workQueue first for tileId second for triangleId and fill them -----
-        
-
-        //// ----- Sorte the two work queue previus created -----
-        //printf("================ Work queue sorted ======================\n");
-        //uint32_t* devWorkQueueKeysSorted;
-        //uint32_t* devWorkQueueValuesSorted;
-        //gpuAssert(cudaMalloc((void**) &devWorkQueueKeysSorted, workQueueSize * sizeof(uint32_t)));
-        //gpuAssert(cudaMalloc((void**) &devWorkQueueValuesSorted, workQueueSize * sizeof(uint32_t)));
-
-        //cub::DeviceRadixSort::SortPairs(
-            //devTempStorage, tempStorageBytes,
-            //devWorkQueueKeys, devWorkQueueKeysSorted,
-            //devWorkQueueValues, devWorkQueueValuesSorted, workQueueSize
-        //);
-
-        //gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
-        
-        //cub::DeviceRadixSort::SortPairs(
-            //devTempStorage, tempStorageBytes,
-            //devWorkQueueKeys, devWorkQueueKeysSorted,
-            //devWorkQueueValues, devWorkQueueValuesSorted, workQueueSize
-        //);
-        //cudaDeviceSynchronize();
-        //cudaFree(devTempStorage);
-        //devTempStorage = nullptr;
-        //tempStorageBytes = 0;
-
-        //uint32_t* keys = new uint32_t[workQueueSize];
-        //uint32_t* values = new uint32_t[workQueueSize];
-
-        //cudaMemcpy(keys, devWorkQueueKeysSorted, workQueueSize * sizeof(uint32_t), cudaMemcpyDeviceToHost);
-        //cudaMemcpy(values, devWorkQueueValuesSorted, workQueueSize * sizeof(uint32_t), cudaMemcpyDeviceToHost);
-
-        //for(int i = 0; i < workQueueSize; ++i)
-            //LOG_INFO("%d: %d", keys[i], values[i]);
-        //// ----- Sorte the two work queue previus created -----
+        TiledWorkQueuePopulation<T><<< gridSize, blockSize >>>(numTriangles, devTriangles, devCoords, devOffsets, devWorkQueueKeys, devWorkQueueValues, grid.View(), workQueueSize);
+        cudaDeviceSynchronize();
+        cudaFree(devOverlapPerTriangle);
+        cudaFree(devOffsets);
+        // ----- Alloc two workQueue first for tileId second for triangleId and fill them -----
         
 
-        //// ----- From workQueueKey sorted we calculate activeTilesList, activeTilesOffset -----
-        //printf("================ Calculate active, offset, size ======================\n");
-        //uint32_t* devActiveTilesList;
-        //uint32_t* devActiveTilesNum;
-        //uint32_t* devActiveTilesTrianglesCount;
-        //const int NUM_TILED = (grid.View().VoxelsPerSide() * grid.View().VoxelsPerSide()) / 4;
-        //LOG_INFO("Total tiled number: %d", NUM_TILED);
+        // ----- Sorte the two work queue previus created -----
+        printf("================ Work queue sorted ======================\n");
+        uint32_t* devWorkQueueKeysSorted;
+        uint32_t* devWorkQueueValuesSorted;
+        gpuAssert(cudaMalloc((void**) &devWorkQueueKeysSorted, workQueueSize * sizeof(uint32_t)));
+        gpuAssert(cudaMalloc((void**) &devWorkQueueValuesSorted, workQueueSize * sizeof(uint32_t)));
 
-        //gpuAssert(cudaMalloc((void**) &devActiveTilesList, NUM_TILED * sizeof(uint32_t)));
-        //gpuAssert(cudaMalloc((void**) &devActiveTilesTrianglesCount, NUM_TILED * sizeof(uint32_t)));
-        //gpuAssert(cudaMalloc((void**) &devActiveTilesNum, sizeof(uint32_t)));
+        cub::DeviceRadixSort::SortPairs(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeys, devWorkQueueKeysSorted,
+            devWorkQueueValues, devWorkQueueValuesSorted, workQueueSize
+        );
 
-        //cub::DeviceRunLengthEncode::Encode(
-            //devTempStorage, tempStorageBytes,
-            //devWorkQueueKeysSorted, devActiveTilesList, 
-            //devActiveTilesTrianglesCount,
-            //devActiveTilesNum, workQueueSize
-        //);
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+        
+        cub::DeviceRadixSort::SortPairs(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeys, devWorkQueueKeysSorted,
+            devWorkQueueValues, devWorkQueueValuesSorted, workQueueSize
+        );
+        cudaDeviceSynchronize();
+        cudaFree(devTempStorage);
+        devTempStorage = nullptr;
+        tempStorageBytes = 0;
 
-        //gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+        uint32_t* keys = new uint32_t[workQueueSize];
+        uint32_t* values = new uint32_t[workQueueSize];
 
-        //cub::DeviceRunLengthEncode::Encode(
-            //devTempStorage, tempStorageBytes,
-            //devWorkQueueKeysSorted, devActiveTilesList, 
-            //devActiveTilesTrianglesCount,
-            //devActiveTilesNum, workQueueSize
-        //);
+        cudaMemcpy(keys, devWorkQueueKeysSorted, workQueueSize * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(values, devWorkQueueValuesSorted, workQueueSize * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
-        //cudaDeviceSynchronize();
-        //cudaFree(devTempStorage);
-        //devTempStorage = nullptr;
-        //tempStorageBytes = 0;
+        for(int i = 0; i < workQueueSize; ++i)
+            LOG_INFO("%d: %d", keys[i], values[i]);
+        // ----- Sorte the two work queue previus created -----
+        
 
-        //uint32_t numActiveTiles;
-        //gpuAssert(cudaMemcpy(&numActiveTiles, devActiveTilesNum, sizeof(uint32_t), cudaMemcpyDeviceToHost));
-        //uint32_t* devActiveTilesOffset;
-        //gpuAssert(cudaMalloc((void**) &devActiveTilesOffset, numActiveTiles * sizeof(uint32_t)));
+        // ----- From workQueueKey sorted we calculate activeTilesList, activeTilesOffset -----
+        printf("================ Calculate active, offset, size ======================\n");
+        uint32_t* devActiveTilesList;
+        uint32_t* devActiveTilesNum;
+        uint32_t* devActiveTilesTrianglesCount;
+        const int NUM_TILED = (grid.View().VoxelsPerSide() * grid.View().VoxelsPerSide()) / 4;
+        LOG_INFO("Total tiled number: %d", NUM_TILED);
+
+        gpuAssert(cudaMalloc((void**) &devActiveTilesList, NUM_TILED * sizeof(uint32_t)));
+        gpuAssert(cudaMalloc((void**) &devActiveTilesTrianglesCount, NUM_TILED * sizeof(uint32_t)));
+        gpuAssert(cudaMalloc((void**) &devActiveTilesNum, sizeof(uint32_t)));
+
+        cub::DeviceRunLengthEncode::Encode(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeysSorted, devActiveTilesList, 
+            devActiveTilesTrianglesCount,
+            devActiveTilesNum, workQueueSize
+        );
+
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+
+        cub::DeviceRunLengthEncode::Encode(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeysSorted, devActiveTilesList, 
+            devActiveTilesTrianglesCount,
+            devActiveTilesNum, workQueueSize
+        );
+
+        cudaDeviceSynchronize();
+        cudaFree(devTempStorage);
+        devTempStorage = nullptr;
+        tempStorageBytes = 0;
+
+        uint32_t numActiveTiles;
+        gpuAssert(cudaMemcpy(&numActiveTiles, devActiveTilesNum, sizeof(uint32_t), cudaMemcpyDeviceToHost));
+        uint32_t* devActiveTilesOffset;
+        gpuAssert(cudaMalloc((void**) &devActiveTilesOffset, numActiveTiles * sizeof(uint32_t)));
 
 
-        //LOG_INFO("Num tiled Active: %d", numActiveTiles);
-        //cub::DeviceScan::ExclusiveSum(
-            //devTempStorage, tempStorageBytes,
-            //devActiveTilesTrianglesCount, 
-            //devActiveTilesOffset, 
-            //numActiveTiles
-        //);
+        LOG_INFO("Num tiled Active: %d", numActiveTiles);
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devActiveTilesTrianglesCount, 
+            devActiveTilesOffset, 
+            numActiveTiles
+        );
 
-        //gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
 
 
-        //cub::DeviceScan::ExclusiveSum(
-            //devTempStorage, tempStorageBytes,
-            //devActiveTilesTrianglesCount, devActiveTilesOffset, numActiveTiles
-        //);
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devActiveTilesTrianglesCount, devActiveTilesOffset, numActiveTiles
+        );
 
-        //cudaDeviceSynchronize();
-        //devTempStorage = nullptr;
-        //tempStorageBytes = 0;
+        cudaDeviceSynchronize();
+        devTempStorage = nullptr;
+        tempStorageBytes = 0;
 
-        //uint32_t* activeTilesList = new uint32_t[numActiveTiles];
-        //uint32_t* activeTilesOffset = new uint32_t[numActiveTiles];
-        //uint32_t* activeTilesTrianglesCount = new uint32_t[numActiveTiles]();
+        uint32_t* activeTilesList = new uint32_t[numActiveTiles];
+        uint32_t* activeTilesOffset = new uint32_t[numActiveTiles];
+        uint32_t* activeTilesTrianglesCount = new uint32_t[numActiveTiles]();
 
-        //cudaMemcpy(activeTilesList, devActiveTilesList, numActiveTiles * sizeof(uint32_t), cudaMemcpyDeviceToHost);
-        //cudaMemcpy(activeTilesOffset, devActiveTilesOffset, numActiveTiles * sizeof(uint32_t), cudaMemcpyDeviceToHost);
-        //cudaMemcpy(activeTilesTrianglesCount, devActiveTilesTrianglesCount, numActiveTiles * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(activeTilesList, devActiveTilesList, numActiveTiles * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(activeTilesOffset, devActiveTilesOffset, numActiveTiles * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        cudaMemcpy(activeTilesTrianglesCount, devActiveTilesTrianglesCount, numActiveTiles * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
-        //for (int i = 0; i < numActiveTiles; ++i) {
-            //LOG_INFO("%d: start: %d, num: %d", activeTilesList[i], activeTilesOffset[i], activeTilesTrianglesCount[i]);
-        //}
-        //// ----- From workQueueKey sorted we calculate activeTilesList, activeTilesOffset -----
+        for (int i = 0; i < numActiveTiles; ++i) {
+            LOG_INFO("%d: start: %d, num: %d", activeTilesList[i], activeTilesOffset[i], activeTilesTrianglesCount[i]);
+        }
+        // ----- From workQueueKey sorted we calculate activeTilesList, activeTilesOffset -----
 
-        //TiledProcessing<T><<< numActiveTiles, 16 >>>(
-            //devTriangles, devCoords, 
-            //devWorkQueueValuesSorted, 
-            //devActiveTilesList, 
-            //devActiveTilesTrianglesCount, 
-            //devActiveTilesOffset, grid.View()
-        //);  
+        TiledProcessing<T><<< numActiveTiles, 16 >>>(
+            devTriangles, devCoords, 
+            devWorkQueueValuesSorted, 
+            devActiveTilesList, 
+            devActiveTilesTrianglesCount, 
+            devActiveTilesOffset, grid.View()
+        );  
 
-        //cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
     }
 };
 

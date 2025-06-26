@@ -59,15 +59,15 @@ __global__ void NaiveKernel(size_t trianglesSize, uint32_t* triangleCoords,
     overlapPerTriangle[index] = overlap;
 
 
-    __syncthreads();
-    if (index == 1) {
-        int counter = 0;
-        for(int i=0; i<trianglesSize; i++) {
-            LOG_INFO("%d: %d", i, overlapPerTriangle[i]);
-            counter+= overlapPerTriangle[i];
-        }
-        LOG_INFO("%d", counter);
-    }
+    //__syncthreads();
+    //if (index == 1) {
+        //int counter = 0;
+        //for(int i=0; i<trianglesSize; i++) {
+            //LOG_INFO("%d: %d", i, overlapPerTriangle[i]);
+            //counter+= overlapPerTriangle[i];
+        //}
+        //LOG_INFO("%d", counter);
+    //}
 }
 
 
