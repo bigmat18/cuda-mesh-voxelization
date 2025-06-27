@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cuda_runtime_api.h>
 #include <string>
 #include <chrono>
 #include <cuda_runtime.h>
@@ -47,21 +48,25 @@ constexpr std::string_view file_name(std::string_view path) {
 
 #define LOG_DEBUG(format, ...) LOG_INTERNAL("DEBUG", format, ##__VA_ARGS__)
 
-inline void gpuAssert(cudaError_t code)
+inline void gpuAssertBase(cudaError_t code, const char* file, int line)
 {
     if (code != cudaSuccess) {
-        LOG_ERROR("CUDA Assert Code: %s", cudaGetErrorString(code));
+        printf("[%s:%d] CUDA Assert: %s", file, line, cudaGetErrorString(code));
         exit(code);
     }
 }
 
-inline void cpuAssert(bool condition, const std::string msg = "No error msg")
+inline void cpuAssertBase(bool condition, const std::string msg,
+                          const char* file, int line)
 {
     if (!condition) { 
-        LOG_ERROR("CPU Assert: %s", msg.c_str());
+        printf("[%s:%d] CPU Assert: %s", file, line, msg.c_str());
         exit(-1);
     }
 }
 
+#define gpuAssert(ans) gpuAssertBase((ans), __FILE__, __LINE__);
+
+#define cpuAssert(ans, msg) cpuAssertBase((ans), msg, __FILE__, __LINE__);
 
 #endif

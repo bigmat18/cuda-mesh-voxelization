@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
         devGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
 
         Voxelization::Compute<Voxelization::Types::NAIVE, uint32_t>(
-            devGrid, mesh, device, 256
+            devGrid, mesh, device 
         );
 
         #if EXPORT
@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
         devGrid.View().SetOrigin(bbX.first, bbY.first, bbZ.first);
 
         Voxelization::Compute<Voxelization::Types::TILED, uint32_t>(
-            devGrid, mesh, device, 256
+            devGrid, mesh, device
         );
 
         #if EXPORT
