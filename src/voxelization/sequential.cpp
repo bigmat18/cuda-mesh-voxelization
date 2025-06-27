@@ -1,4 +1,4 @@
-#include <voxelization/voxelization.h>
+#include <voxelization/voxelization.cuh>
 #include <bounding_box.h>
 
 namespace Voxelization {

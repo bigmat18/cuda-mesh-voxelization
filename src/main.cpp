@@ -4,7 +4,7 @@
 #include <bounding_box.h>
 #include <string>
 #include <voxels_grid.h>
-#include <voxelization/voxelization.h>
+#include <voxelization/voxelization.cuh>
 #include <profiling.h>
 
 #define EXPORT 1
