@@ -24,10 +24,10 @@ __global__ void NaiveKernel(const size_t numTriangles,
     std::pair<float, float> BB_X, BB_Y, BB_Z;
     CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
-    int startY = static_cast<int>(std::floorf((BB_Y.first - grid.OriginY()) / grid.VoxelSize()));
-    int endY   = static_cast<int>(std::ceilf((BB_Y.second - grid.OriginY()) / grid.VoxelSize()));
-    int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / grid.VoxelSize()));
-    int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / grid.VoxelSize()));
+    int startY = static_cast<int>(std::floor((BB_Y.first - grid.OriginY()) / grid.VoxelSize()));
+    int endY   = static_cast<int>(std::ceil((BB_Y.second - grid.OriginY()) / grid.VoxelSize()));
+    int startZ = static_cast<int>(std::floor((BB_Z.first - grid.OriginZ()) / grid.VoxelSize()));
+    int endZ   = static_cast<int>(std::ceil((BB_Z.second - grid.OriginZ()) / grid.VoxelSize()));
 
     Position edge0 = V1 - V0;
     Position edge1 = V2 - V0;
@@ -50,8 +50,16 @@ __global__ void NaiveKernel(const size_t numTriangles,
 
                 int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
                 int endX = grid.VoxelsPerSide();
-                for(int x = startX; x < endX; ++x)
-                    grid(x, y, z) ^= true;
+
+                for(int x = (startX / grid.WordSize()) * grid.WordSize(); x < endX; x+=grid.WordSize())
+                {
+                    T newWord = 0;
+                    for(int bit = startX % grid.WordSize(); bit < grid.WordSize(); ++bit) {
+                        newWord |= (1 << bit);
+                    }
+                    grid.SetWord(x, y, z, newWord);
+                    startX = 0;
+                }
             }
         }
     }

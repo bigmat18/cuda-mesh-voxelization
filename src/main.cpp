@@ -7,7 +7,7 @@
 #include <voxelization/voxelization.cuh>
 #include <profiling.h>
 
-#define EXPORT 1
+#define EXPORT 0
 #define ACTIVE_SEQUENTIAL 1
 #define ACTIVE_NAIVE 1
 #define ACTIVE_TILED 1

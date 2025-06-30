@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdint>
 #include <voxelization/voxelization.cuh>
 #include <bounding_box.h>
@@ -214,10 +215,10 @@ __global__ void CalculateNumOverlapPerTriangle(const size_t numTriangles,
     CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
     const float tileSize = grid.VoxelSize() * 4;
-    int startY = static_cast<int>(std::floorf((BB_Y.first - grid.OriginY()) / tileSize));
-    int endY   = static_cast<int>(std::ceilf((BB_Y.second - grid.OriginY()) / tileSize));
-    int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / tileSize));
-    int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / tileSize));
+    int startY = static_cast<int>(std::floor((BB_Y.first - grid.OriginY()) / tileSize));
+    int endY   = static_cast<int>(std::ceil((BB_Y.second - grid.OriginY()) / tileSize));
+    int startZ = static_cast<int>(std::floor((BB_Z.first - grid.OriginZ()) / tileSize));
+    int endZ   = static_cast<int>(std::ceil((BB_Z.second - grid.OriginZ()) / tileSize));
 
     Normal N0 = CalculateNormalZY(V0, V1) * sign;
     Normal N1 = CalculateNormalZY(V1, V2) * sign;
@@ -274,10 +275,10 @@ __global__ void WorkQueuePopulation(const size_t numTriangles,
     const float tileSize = grid.VoxelSize() * 4;
     const uint tilePerSide = grid.VoxelsPerSide() / 4;
 
-    int startY = static_cast<int>(std::floorf((BB_Y.first - grid.OriginY()) / tileSize));
-    int endY   = static_cast<int>(std::ceilf((BB_Y.second - grid.OriginY()) / tileSize));
-    int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / tileSize));
-    int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / tileSize));
+    int startY = static_cast<int>(std::floor((BB_Y.first - grid.OriginY()) / tileSize));
+    int endY   = static_cast<int>(std::ceil((BB_Y.second - grid.OriginY()) / tileSize));
+    int startZ = static_cast<int>(std::floor((BB_Z.first - grid.OriginZ()) / tileSize));
+    int endZ   = static_cast<int>(std::ceil((BB_Z.second - grid.OriginZ()) / tileSize));
 
     Position N0 = CalculateNormalZY(V0, V1) * sign;
     Position N1 = CalculateNormalZY(V1, V2) * sign;
@@ -339,15 +340,26 @@ __global__ void TiledProcessing(const uint32_t* triangleCoords,
 
     for(int batch = 0; batch < numTriangles; batch += BLOCK_SIZE)
     {
-        if (voxelIndex < BLOCK_SIZE && (voxelIndex + batch) < numTriangles) {
-            const int indexV0 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3)];
-            const int indexV1 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3) + 1];
-            const int indexV2 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3) + 2];
+        for(int i = voxelIndex; i < BLOCK_SIZE * 3 && i < (numTriangles - batch) * 3; i+=32)
+        {
+            const int posVertex = (i / 3);
+            const int posCoord = (i % 3);
+            const int indexV = triangleCoords[(workQueue[(tileOffset + posVertex + batch)] * 3) + posCoord];
 
-            sharedVertices[(voxelIndex * 3)]     = coords[indexV0];
-            sharedVertices[(voxelIndex * 3) + 1] = coords[indexV1];
-            sharedVertices[(voxelIndex * 3) + 2] = coords[indexV2];
+            sharedVertices[(posVertex * 3) + (posCoord)] = coords[indexV];
         }
+
+        // ================ OLD VERSION ========================
+        //if (voxelIndex < BLOCK_SIZE && (voxelIndex + batch) < numTriangles) {
+            //const int indexV0 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3)];
+            //const int indexV1 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3) + 1];
+            //const int indexV2 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3) + 2];
+
+            //sharedVertices[(voxelIndex * 3)]     = coords[indexV0];
+            //sharedVertices[(voxelIndex * 3) + 1] = coords[indexV1];
+            //sharedVertices[(voxelIndex * 3) + 2] = coords[indexV2];
+        //}
+        // ================ OLD VERSION ========================
 
         __syncthreads();
 
@@ -382,8 +394,15 @@ __global__ void TiledProcessing(const uint32_t* triangleCoords,
                 int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
                 int endX = grid.VoxelsPerSide();
 
-                for(int x = startX; x < endX; ++x)
-                    grid(x, y, z) ^= true;
+                for(int x = (startX / grid.WordSize()) * grid.WordSize(); x < endX; x+=grid.WordSize())
+                {
+                    T newWord = 0;
+                    for(int bit = startX % grid.WordSize(); bit < grid.WordSize(); ++bit) {
+                        newWord |= (1 << bit);
+                    }
+                    grid.SetWord(x, y, z, newWord);
+                    startX = 0;
+                }
             }
         }
         __syncthreads();

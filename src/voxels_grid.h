@@ -1,17 +1,18 @@
 #ifndef VOXELS_GRID
 #define VOXELS_GRID
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <sys/types.h>
 #include <type_traits>
 #include <cassert>
-
 #include <debug_utils.h>
+#include <cuda_runtime.h>
 
 template<typename T, typename... Types>
-__device__ static inline constexpr bool is_one_of = 
+__device__ constexpr bool is_one_of = 
     ( std::is_same_v<T, Types> || ... );
 
 template <
@@ -33,7 +34,7 @@ class VoxelsGrid
 {
     std::span<T> mVoxels;
     size_t mVoxelsPerSide;
-    float mSideLength;
+    float mSideLength; 
     float mOriginX = 0;
     float mOriginY = 0;
     float mOriginZ = 0;
@@ -107,6 +108,33 @@ public:
 
         size_t index = Index(x, y, z);
         return (mVoxels[index / WordSize()] & (T(1) << (index % WordSize()))) != 0;
+    }
+
+    __host__ __device__
+    void SetWord(size_t x, size_t y, size_t z, T word)
+    {
+        assert(x < mVoxelsPerSide); 
+        assert(y < mVoxelsPerSide); 
+        assert(z < mVoxelsPerSide); 
+
+        size_t index = Index(x, y, z);
+        if constexpr (device) {
+            atomicXor(&mVoxels[index / WordSize()], word);
+        } else {
+            mVoxels[index / WordSize()] |= word;
+        }
+    }
+
+    __host__ __device__
+    T GetWord(size_t x, size_t y, size_t z) const
+    {
+
+        assert(x < mVoxelsPerSide); 
+        assert(y < mVoxelsPerSide); 
+        assert(z < mVoxelsPerSide); 
+
+        size_t index = Index(x, y, z);
+        return mVoxels[index / WordSize()];
     }
 
     __host__ __device__

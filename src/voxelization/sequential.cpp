@@ -21,10 +21,10 @@ __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
         std::pair<float, float> BB_X, BB_Y, BB_Z;
         CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
-        int startY = static_cast<int>(std::floorf((BB_Y.first - grid.OriginY()) / grid.VoxelSize()));
-        int endY   = static_cast<int>(std::ceilf((BB_Y.second - grid.OriginY()) / grid.VoxelSize()));
-        int startZ = static_cast<int>(std::floorf((BB_Z.first - grid.OriginZ()) / grid.VoxelSize()));
-        int endZ   = static_cast<int>(std::ceilf((BB_Z.second - grid.OriginZ()) / grid.VoxelSize()));
+        int startY = static_cast<int>(std::floor((BB_Y.first - grid.OriginY()) / grid.VoxelSize()));
+        int endY   = static_cast<int>(std::ceil((BB_Y.second - grid.OriginY()) / grid.VoxelSize()));
+        int startZ = static_cast<int>(std::floor((BB_Z.first - grid.OriginZ()) / grid.VoxelSize()));
+        int endZ   = static_cast<int>(std::ceil((BB_Z.second - grid.OriginZ()) / grid.VoxelSize()));
 
         Position edge0 = V1 - V0;
         Position edge1 = V2 - V0;
