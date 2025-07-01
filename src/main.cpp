@@ -1,5 +1,7 @@
+#include "mesh/mesh.h"
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <mesh/mesh_io.h>
 #include <mesh/grid_to_mesh.h>
 #include <bounding_box.h>
@@ -8,11 +10,12 @@
 #include <voxels_grid.h>
 #include <voxelization/voxelization.cuh>
 #include <profiling.h>
+#include <csg.cuh>
 
-#define EXPORT 0
-#define ACTIVE_SEQUENTIAL 1
-#define ACTIVE_NAIVE 1
-#define ACTIVE_TILED 1
+#define EXPORT_STEPS 1
+#define ACTIVE_SEQUENTIAL 0 
+#define ACTIVE_NAIVE 0
+#define ACTIVE_TILED 0
 
 std::string getFilename(const std::string path) {
     size_t pos = path.find_last_of('/');
@@ -26,7 +29,7 @@ int main(int argc, char **argv) {
     cpuAssert((argc >= 1), "Need [input file]\n");
 
     size_t voxelsPerSide = 32;
-    std::string outFileName = "out";
+    std::string outFileName = "out.obj";
     std::string opType = "null";  
     std::vector<Mesh> meshes;
 
@@ -54,15 +57,39 @@ int main(int argc, char **argv) {
         }
     }
 
-    for(auto& mesh : meshes) {
+    std::vector<std::unique_ptr<DeviceVoxelsGrid32bit>> grids;
+
+    size_t size = 0;
+    std::vector<Position> allCoords;
+    for(const auto& mesh : meshes)
+        size += mesh.Coords.size();
+
+    allCoords.reserve(size);
+    
+    for(const auto& mesh : meshes)
+        allCoords.insert(allCoords.end(), mesh.Coords.begin(), mesh.Coords.end());
+
+
+
+    std::pair<float, float> bbX, bbY, bbZ;
+    float sideLength = CalculateBoundingBox(
+        std::span<Position>(&allCoords[0], allCoords.size()), 
+        bbX, bbY, bbZ 
+    );
+
+    for(int i = 0; i < meshes.size(); i++) {
+        auto& mesh = meshes[i];
 
         printf("============== %s =============\n", mesh.Name.c_str());
-        std::pair<float, float> bbX, bbY, bbZ;
-        float sideLength = 0.0f;
-        sideLength = CalculateBoundingBox(
-            std::span<Position>(&mesh.Coords[0], mesh.Coords.size()), 
-            bbX, bbY, bbZ 
-        );
+
+        if(opType != "null") {
+            grids.emplace_back(std::make_unique<DeviceVoxelsGrid32bit>(voxelsPerSide, sideLength));
+            grids[i]->View().SetOrigin(bbX.first, bbY.first, bbZ.first);
+
+            Voxelization::Compute<Voxelization::Types::TILED, uint32_t>(
+                *grids[i], mesh, device
+            );
+        }
 
         #if ACTIVE_SEQUENTIAL 
         {
@@ -73,7 +100,7 @@ int main(int argc, char **argv) {
                 hostGrid, mesh
             );   
 
-            #if EXPORT
+            #if EXPORT_STEPS
             Mesh outMesh;
             VoxelsGridToMesh(hostGrid.View(), outMesh);
             if(!ExportMesh("out/sequential_" + mesh.Name, outMesh)) {
@@ -82,8 +109,7 @@ int main(int argc, char **argv) {
             }
             #endif
         } 
-        #endif 
-
+        #endif
         #if ACTIVE_NAIVE
         {
             DeviceVoxelsGrid32bit devGrid(voxelsPerSide, sideLength);
@@ -93,7 +119,7 @@ int main(int argc, char **argv) {
                 devGrid, mesh, device 
             );
 
-            #if EXPORT
+            #if EXPORT_STEPS
             HostVoxelsGrid32bit hostGrid(devGrid);   
             Mesh outMesh;
             VoxelsGridToMesh(hostGrid.View(), outMesh);
@@ -114,7 +140,7 @@ int main(int argc, char **argv) {
                 devGrid, mesh, device
             );
 
-            #if EXPORT
+            #if EXPORT_STEPS
             Mesh outMesh;
             HostVoxelsGrid32bit hostGrid(devGrid);   
             VoxelsGridToMesh(hostGrid.View(), outMesh);
@@ -125,6 +151,30 @@ int main(int argc, char **argv) {
             #endif
         }
         #endif
+    }
+
+    if (opType != "null") {
+        printf("============== Start CSG =============\n");
+
+        for (int i = 1; i < grids.size(); ++i) {
+            if (opType == "union") 
+                CSG::Compute<uint32_t, true>(grids[0]->View(), grids[i]->View(), CSG::Union<uint32_t>());
+
+            if (opType == "inter") 
+                CSG::Compute<uint32_t, true>(grids[0]->View(), grids[i]->View(), CSG::Intersection<uint32_t>());
+
+            if (opType == "diff") 
+                CSG::Compute<uint32_t, true>(grids[0]->View(), grids[i]->View(), CSG::Difference<uint32_t>());
+        }
+
+
+        Mesh outMesh;
+        HostVoxelsGrid32bit hostGrid(*grids[0]);   
+        VoxelsGridToMesh(hostGrid.View(), outMesh);
+        if(!ExportMesh("out/" + outFileName, outMesh)) {
+            LOG_ERROR("Error in tiled mesh export");
+            return -1;
+        }
     }
 
     return 0;

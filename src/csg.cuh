@@ -5,33 +5,45 @@
 
 namespace CSG {
 
-template <typename T> __host__ __device__
-void Union(T& el, T value) { el |= value; }
+template <typename T> 
+struct Union {
+    __host__ __device__
+    void operator() (T& el, T value) { el |= value; }
+};
 
-template <typename T> __host__ __device__
-void Intersection(T& el, T value) { el &= value; }
+template <typename T> 
+struct Intersection {
+    __host__ __device__
+    void operator() (T& el, T value) { el &= value; }
+};
 
-template <typename T> __host__ __device__
-void Difference(T& el, T value) { el &= !value; }
+template <typename T> 
+struct Difference {
+    __host__ __device__
+    void operator() (T& el, T value) { el &= ~value; }
+};
 
-template <typename T>
-__global__ void CSGProcessing(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> grid2, std::function<void(T&, T)> Op)
+template <typename T, typename func>
+__global__ void CSGProcessing(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> grid2, func Op)
 {
-    const int wordX = blockIdx.x * blockDim.x + threadIdx.x;
-    const int wordY = blockIdx.y * blockDim.y + threadIdx.y;
-    const int wordZ = blockIdx.z * blockDim.z + threadIdx.z;
+
+    const int x = (blockIdx.x * blockDim.x + threadIdx.x) * grid1.WordSize();
+    const int y = (blockIdx.y * blockDim.y + threadIdx.y) * grid1.WordSize();
+    const int z = (blockIdx.z * blockDim.z + threadIdx.z) * grid1.WordSize();
+
+    if(x >= grid1.VoxelsPerSide() || y >= grid1.VoxelsPerSide() || z >= grid1.VoxelsPerSide())
+        return;
 
     T word = 0;
     for(int i = 0; i < grid2.WordSize(); ++i) 
-        word |= grid2((wordX * grid2.WordSize()) + i, (wordY * grid2.WordSize()), (wordZ * grid2.WordSize())) << 0;
+        word |= grid2(x + i, y, z) << i;
     
-    grid1.SetWord(wordX * grid1.WordSize(), wordY * grid1.WordSize(), wordZ * grid1.WordSize(), word, Op);
+    grid1.SetWord(x, y, z, word, Op);
 }
 
-template <typename T, bool device>
-void Compute(VoxelsGrid<T, device> grid1, VoxelsGrid<T, device> grid2, std::function<void(T&, T)> Op)
-{
-
+template <typename T, bool device, typename func>
+void Compute(VoxelsGrid<T, device> grid1, VoxelsGrid<T, device> grid2, func Op)
+{ 
     if constexpr (device) {
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);
@@ -41,7 +53,7 @@ void Compute(VoxelsGrid<T, device> grid1, VoxelsGrid<T, device> grid2, std::func
         dim3 numBlocks(
             (numWord + threadsPerBlock.x - 1) / threadsPerBlock.x,
             (numWord + threadsPerBlock.y - 1) / threadsPerBlock.y,
-            ((numWord + 31) / 32 + threadsPerBlock.z - 1) / threadsPerBlock.z
+            (numWord + threadsPerBlock.z - 1) / threadsPerBlock.z
         );
         
         CSGProcessing<T><<< numBlocks, threadsPerBlock >>>(grid1, grid2, Op);
