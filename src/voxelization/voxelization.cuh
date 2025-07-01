@@ -29,14 +29,7 @@ CalculateNormalZY(Position& V0, Position& V1)
 __device__ __host__ inline Normal 
 CalculateFaceNormal(Position& V0, Position& V1, Position& V2)
 { return Vec3<float>::Cross(V1 - V0, V2 - V1); }
-
-__host__ inline int NextPow2(const int n, const int max) {
-    int pow2 = 1;
-    while (pow2 < n && pow2 < max)
-        pow2 <<= 1;
-    return pow2;
-}
-    
+ 
     
 template <typename T>
 __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,

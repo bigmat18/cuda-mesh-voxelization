@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <span>
 #include <sys/types.h>
@@ -111,7 +112,7 @@ public:
     }
 
     __host__ __device__
-    void SetWord(size_t x, size_t y, size_t z, T word)
+    void XorWord(size_t x, size_t y, size_t z, T word)
     {
         assert(x < mVoxelsPerSide); 
         assert(y < mVoxelsPerSide); 
@@ -123,6 +124,17 @@ public:
         } else {
             mVoxels[index / WordSize()] |= word;
         }
+    }
+
+    __host__ __device__
+    void SetWord(size_t x, size_t y, size_t z, T word, std::function<void(T&, T)> op)
+    {
+        assert(x < mVoxelsPerSide); 
+        assert(y < mVoxelsPerSide); 
+        assert(z < mVoxelsPerSide); 
+
+        size_t index = Index(x, y, z);
+        op(&mVoxels[index / WordSize()], word);
     }
 
     __host__ __device__

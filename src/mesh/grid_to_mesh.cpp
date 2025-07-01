@@ -1,5 +1,5 @@
 #include "voxels_grid.h"
-#include <mesh/voxels_to_mesh.h>
+#include <mesh/grid_to_mesh.h>
 
 template <typename T>
 bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh) 

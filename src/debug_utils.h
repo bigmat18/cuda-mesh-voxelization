@@ -7,6 +7,14 @@
 #ifndef CUDA_UTILS
 #define CUDA_UTILS
 
+
+__host__ inline int NextPow2(const int n, const int max) {
+    int pow2 = 1;
+    while (pow2 < n && pow2 < max)
+        pow2 <<= 1;
+    return pow2;
+}
+
 __host__ __device__ inline const char* getCurrentTimestamp() {
     #ifndef __CUDA_ARCH__
         static char timestamp_buffer[64];

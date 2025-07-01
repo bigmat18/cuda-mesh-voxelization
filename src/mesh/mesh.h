@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -131,12 +132,17 @@ using Normal = Vec3<float>;
 
 struct Mesh 
 {
+    std::string Name = "mesh_default";
     std::vector<uint32_t> FacesCoords;
     std::vector<uint32_t> FacesNormals;
 
     std::vector<Position> Coords;
     std::vector<Normal> Normals;
     std::vector<Color> Colors;
+
+    Mesh() = default;
+        
+    Mesh(std::string name) : Name(name) {};
 
     void VerticesReserve(const size_t size) { 
         Coords.reserve(size); Normals.reserve(size); Colors.reserve(size);

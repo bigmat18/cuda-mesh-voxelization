@@ -1,3 +1,6 @@
+#ifndef GRID_TO_MESH_H
+#define GRID_TO_MESH_H
+
 #include <array>
 #include <tuple>
 #include <unordered_map>
@@ -6,9 +9,6 @@
 
 #include <mesh/mesh.h>
 #include <voxels_grid.h>
-
-#ifndef VOXEL_TO_MESH_H
-#define VOXEL_TO_MESH_H
 
 using uint = unsigned int;
 
@@ -115,4 +115,4 @@ inline void AddFacesVertexYZ(float voxelX, float voxelY, float voxelZ,
 template <typename T>
 bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh); 
 
-#endif // !VOXEL_TO_MESH_H
+#endif // !GRID_TO_MESH_H
