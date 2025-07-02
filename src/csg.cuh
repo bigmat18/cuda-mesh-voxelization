@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <functional>
 #include <voxels_grid.h>
 #include <debug_utils.h>
@@ -27,12 +28,16 @@ template <typename T, typename func>
 __global__ void CSGProcessing(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> grid2, func Op)
 {
 
-    const int x = (blockIdx.x * blockDim.x + threadIdx.x) * grid1.WordSize();
-    const int y = (blockIdx.y * blockDim.y + threadIdx.y) * grid1.WordSize();
-    const int z = (blockIdx.z * blockDim.z + threadIdx.z) * grid1.WordSize();
+    const int numWord = grid1.SpaceSize() * grid1.WordSize();
+    const int wordIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
+    const int bitIndex = wordIndex * grid1.WordSize();
 
-    if(x >= grid1.VoxelsPerSide() || y >= grid1.VoxelsPerSide() || z >= grid1.VoxelsPerSide())
+    if(wordIndex >= numWord)
         return;
+
+    const int z = bitIndex / (grid1.VoxelsPerSide() * grid1.VoxelsPerSide());
+    const int y = (bitIndex % (grid1.VoxelsPerSide() * grid1.VoxelsPerSide())) / grid1.VoxelsPerSide();
+    const int x = bitIndex % grid1.VoxelsPerSide();
 
     T word = 0;
     for(int i = 0; i < grid2.WordSize(); ++i) 
@@ -48,15 +53,11 @@ void Compute(VoxelsGrid<T, device> grid1, VoxelsGrid<T, device> grid2, func Op)
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);
 
-        const size_t numWord = grid1.VoxelsPerSide() / grid1.WordSize();
-        dim3 threadsPerBlock(8, 8, 8);
-        dim3 numBlocks(
-            (numWord + threadsPerBlock.x - 1) / threadsPerBlock.x,
-            (numWord + threadsPerBlock.y - 1) / threadsPerBlock.y,
-            (numWord + threadsPerBlock.z - 1) / threadsPerBlock.z
-        );
+        const size_t numWord = (grid1.SpaceSize() + grid1.WordSize() - 1) / grid1.WordSize();
+        const size_t blockSize = NextPow2(numWord, prop.maxThreadsDim[0] / 2);
+        const size_t gridSize = (numWord + blockSize - 1) / blockSize;
         
-        CSGProcessing<T><<< numBlocks, threadsPerBlock >>>(grid1, grid2, Op);
+        CSGProcessing<T><<< gridSize, blockSize >>>(grid1, grid2, Op);
 
         gpuAssert(cudaPeekAtLastError());
         cudaDeviceSynchronize(); 
