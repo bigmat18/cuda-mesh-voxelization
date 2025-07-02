@@ -30,14 +30,14 @@ __global__ void CSGProcessing(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> gri
 
     const int numWord = grid1.SpaceSize() * grid1.WordSize();
     const int wordIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
-    const int bitIndex = wordIndex * grid1.WordSize();
+    const int voxelIndex = wordIndex * grid1.WordSize();
 
     if(wordIndex >= numWord)
         return;
 
-    const int z = bitIndex / (grid1.VoxelsPerSide() * grid1.VoxelsPerSide());
-    const int y = (bitIndex % (grid1.VoxelsPerSide() * grid1.VoxelsPerSide())) / grid1.VoxelsPerSide();
-    const int x = bitIndex % grid1.VoxelsPerSide();
+    const int z = voxelIndex / (grid1.VoxelsPerSide() * grid1.VoxelsPerSide());
+    const int y = (voxelIndex % (grid1.VoxelsPerSide() * grid1.VoxelsPerSide())) / grid1.VoxelsPerSide();
+    const int x = voxelIndex % grid1.VoxelsPerSide();
 
     T word = 0;
     for(int i = 0; i < grid2.WordSize(); ++i) 

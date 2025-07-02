@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <span>
 #include <sys/types.h>
@@ -125,7 +126,8 @@ public:
         }
     }
 
-    template <typename fun> __host__ __device__
+    template <typename fun> 
+    __host__ __device__
     void SetWord(size_t x, size_t y, size_t z, T word, fun op)
     {
         assert(x < mVoxelsPerSide); 
@@ -192,6 +194,18 @@ public:
     __host__ __device__
     inline float OriginZ() const { return mOriginZ; }
 
+    inline void Print() const {
+        for(int z = 0; z <= mVoxelsPerSide; ++z) {
+            for (int y = 0; y <= mVoxelsPerSide; ++y) {
+                for (int x = 0; x <= mVoxelsPerSide; ++x) {
+                    printf("%d ", (*this)(x, y, z));    
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
+    }
+
     friend class HostVoxelsGrid<T>;
     friend class DeviceVoxelsGrid<T>;
 };
@@ -252,7 +266,7 @@ public:
         const size_t storageSize = VoxelsGrid<T>::StorageSize(host.View().mVoxelsPerSide) * sizeof(T);
         gpuAssert(cudaMalloc((void**) &mData, storageSize));
         mView = VoxelsGrid<T, true>(mData, host.View().mVoxelsPerSide, host.View().mSideLength);
-        gpuAssert(cudaMemcpy(mData, host.mData, storageSize, cudaMemcpyHostToDevice));
+        gpuAssert(cudaMemcpy(mData, host.mData.get(), storageSize, cudaMemcpyHostToDevice));
         mView.SetOrigin(host.View().OriginX(), host.View().OriginY(), host.View().OriginZ());
     }
 
