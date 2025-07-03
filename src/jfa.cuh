@@ -1,4 +1,5 @@
 #include "mesh/mesh.h"
+#include "mesh/mesh_io.h"
 #include <cmath>
 #include <cstddef>
 #include <cuda_runtime_api.h>
@@ -23,7 +24,7 @@ enum class Types {
 };
 
 __host__ __device__ inline float CalculateDistance(Position p0, Position p1) 
-{ return std::sqrt((p1.X - p0.X) + (p1.Y - p0.Y) + (p1.Z - p0.Z)); }
+{ return std::sqrt(std::pow(p1.X - p0.X, 2) + std::pow(p1.Y - p0.Y, 2) + std::pow(p1.Z - p0.Z, 2)); }
 
 template <typename T>
 __global__ void JFAInizializationNaive(const VoxelsGrid<T, true> grid, SDF* SDFValues) 
@@ -44,17 +45,15 @@ __global__ void JFAInizializationNaive(const VoxelsGrid<T, true> grid, SDF* SDFV
             for(int x = -1; x <= 1; x++) {
                 if(x == 0 && y == 0 && z == 0)
                     continue;
-
                 int nx = voxelX + x;
                 int ny = voxelY + y;
                 int nz = voxelZ + z;
 
-                if(nx < 0 || nx >= grid.VoxelsPerSide() ||
-                   ny < 0 || ny >= grid.VoxelsPerSide() ||
-                   nz < 0 || nz >= grid.VoxelsPerSide())
-                    continue;
+                bool isBorder = nx < 0 || nx >= grid.VoxelsPerSide() || 
+                                ny < 0 || ny >= grid.VoxelsPerSide() || 
+                                nz < 0 || nz >= grid.VoxelsPerSide();
 
-                if(!grid(nx, ny, nz)) {
+                if(isBorder || !grid(nx, ny, nz)) {
                     SDFValues[voxelIndex] = SDF({voxelX, voxelY, voxelZ, 0});
                     return;
                 }
@@ -90,7 +89,7 @@ __global__ void JPAProcessingNaive(const int K, const VoxelsGrid<T, true> grid, 
                    nz < 0 || nz >= grid.VoxelsPerSide())
                     continue;
 
-                int seedIndex = (nz * grid.VoxelsPerSide() * grid.VoxelsPerSide()) + (ny * grid.VoxelsPerSide());
+                int seedIndex = (nz * grid.VoxelsPerSide() * grid.VoxelsPerSide()) + (ny * grid.VoxelsPerSide()) + nx;
                 SDF seed = valuesIn[seedIndex];
                 SDF voxel = valuesIn[voxelIndex];
 

@@ -154,7 +154,37 @@ int main(int argc, char **argv) {
         //#endif
     //}
     HostVoxelsGrid32bit test(8, 1);
-    test.View()(3,3,0) = true;
+    test.View()(0,0,0) = true;
+    test.View()(1,0,0) = true;
+    test.View()(2,0,0) = true;
+    test.View()(0,1,0) = true;
+    test.View()(1,1,0) = true;
+    test.View()(2,1,0) = true;
+    test.View()(0,2,0) = true;
+    test.View()(1,2,0) = true;
+    test.View()(2,2,0) = true;
+
+
+    test.View()(0,0,1) = true;
+    test.View()(1,0,1) = true;
+    test.View()(2,0,1) = true;
+    test.View()(0,1,1) = true;
+    test.View()(1,1,1) = true;
+    test.View()(2,1,1) = true;
+    test.View()(0,2,1) = true;
+    test.View()(1,2,1) = true;
+    test.View()(2,2,1) = true;  
+    
+    test.View()(0,0,2) = true;
+    test.View()(1,0,2) = true;
+    test.View()(2,0,2) = true;
+    test.View()(0,1,2) = true;
+    test.View()(1,1,2) = true;
+    test.View()(2,1,2) = true;
+    test.View()(0,2,2) = true;
+    test.View()(1,2,2) = true;
+    test.View()(2,2,2) = true;
+
     DeviceVoxelsGrid32bit devTest(test);
 
     std::vector<JFA::SDF> sdfValues(8 * 8 * 8);
@@ -165,7 +195,7 @@ int main(int argc, char **argv) {
     for(int z = 0; z < out.View().VoxelsPerSide(); ++z) {
         for (int y = 0; y < out.View().VoxelsPerSide(); ++y) {
             for (int x = 0; x < out.View().VoxelsPerSide(); ++x) {
-                printf("%f ", sdfValues[(z * 8 * 8) + (y * 8) + x].distance);    
+                printf("%.1f ", sdfValues[(z * 8 * 8) + (y * 8) + x].distance);    
             }
             printf("\n");
         }
