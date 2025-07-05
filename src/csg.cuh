@@ -1,5 +1,5 @@
+#include <cassert>
 #include <cstddef>
-#include <functional>
 #include <voxels_grid.h>
 #include <debug_utils.h>
 #ifndef CSG_H
@@ -46,22 +46,25 @@ __global__ void CSGProcessing(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> gri
     grid1.SetWord(x, y, z, word, Op);
 }
 
-template <typename T, bool device, typename func>
-void Compute(VoxelsGrid<T, device> grid1, VoxelsGrid<T, device> grid2, func Op)
+template <typename T, typename func>
+void Compute(DeviceVoxelsGrid<T>& grid1, DeviceVoxelsGrid<T>& grid2, func Op)
 { 
-    if constexpr (device) {
-        cudaDeviceProp prop;
-        cudaGetDeviceProperties(&prop, 0);
+    cpuAssert(grid1.View().VoxelsPerSide() == grid2.View().VoxelsPerSide(), 
+              "grid1 and grid2 must have same voxels per side");
+    cpuAssert(grid1.View().SideLength() == grid2.View().SideLength(),
+              "grid1 and grid2 must have same side length");
 
-        const size_t numWord = (grid1.SpaceSize() + grid1.WordSize() - 1) / grid1.WordSize();
-        const size_t blockSize = NextPow2(numWord, prop.maxThreadsDim[0] / 2);
-        const size_t gridSize = (numWord + blockSize - 1) / blockSize;
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+
+    const size_t numWord = (grid1.View().SpaceSize() + grid1.View().WordSize() - 1) / grid1.View().WordSize();
+    const size_t blockSize = NextPow2(numWord, prop.maxThreadsDim[0] / 2);
+    const size_t gridSize = (numWord + blockSize - 1) / blockSize;
         
-        CSGProcessing<T><<< gridSize, blockSize >>>(grid1, grid2, Op);
+    CSGProcessing<T><<< gridSize, blockSize >>>(grid1.View(), grid2.View(), Op);
 
-        gpuAssert(cudaPeekAtLastError());
-        cudaDeviceSynchronize(); 
-    }
+    gpuAssert(cudaPeekAtLastError());
+    cudaDeviceSynchronize(); 
 }
 
 }

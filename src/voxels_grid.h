@@ -34,8 +34,13 @@ template <
 class VoxelsGrid 
 {
     std::span<T> mVoxels;
-    size_t mVoxelsPerSide;
+
+    size_t mVoxelsPerSideX;
+    size_t mVoxelsPerSideY;
+    size_t mVoxelsPerSideZ;
+
     float mSideLength; 
+
     float mOriginX = 0;
     float mOriginY = 0;
     float mOriginZ = 0;
@@ -85,27 +90,37 @@ public:
     VoxelsGrid() = default;
 
     __host__ __device__
-    VoxelsGrid(T* data, const size_t voxelsPerSide, const float sideLength) :
-        mVoxelsPerSide(voxelsPerSide), mSideLength(sideLength) 
+    VoxelsGrid(T* data, const size_t voxelsPerSideX, const size_t voxelsPerSideY, const size_t voxelsPerSideZ) :
+        mVoxelsPerSideX(voxelsPerSideX), mVoxelsPerSideY(voxelsPerSideY), mVoxelsPerSideZ(voxelsPerSideZ)
     {
-        mVoxels = std::span<T>(data, StorageSize(mVoxelsPerSide));
+        mVoxels = std::span<T>(data, StorageSize(mVoxelsPerSideX, mVoxelsPerSideY, mVoxelsPerSideZ));
     }
 
     __host__ __device__
-    Bit operator() (size_t x, size_t y, size_t z) {
-        assert(x < mVoxelsPerSide); 
-        assert(y < mVoxelsPerSide); 
-        assert(z < mVoxelsPerSide); 
+    VoxelsGrid(T* data, const size_t voxelsPerSide, const float sideLength) :
+        mVoxelsPerSideX(voxelsPerSide), mVoxelsPerSideY(voxelsPerSide), 
+        mVoxelsPerSideZ(voxelsPerSide), mSideLength(sideLength) 
+    {
+        mVoxels = std::span<T>(data, StorageSize(mVoxelsPerSideX));
+    }
+
+    __host__ __device__
+    Bit operator() (size_t x, size_t y, size_t z) 
+    {
+        assert(x < mVoxelsPerSideX); 
+        assert(y < mVoxelsPerSideY); 
+        assert(z < mVoxelsPerSideZ);
 
         size_t index = Index(x, y, z);
         return Bit(&mVoxels[index / WordSize()], (T(1) << (index % WordSize())));
     }
 
     __host__ __device__
-    bool operator()(size_t x, size_t y, size_t z) const {
-        assert(x < mVoxelsPerSide); 
-        assert(y < mVoxelsPerSide); 
-        assert(z < mVoxelsPerSide); 
+    bool operator()(size_t x, size_t y, size_t z) const 
+    {
+        assert(x < mVoxelsPerSideX); 
+        assert(y < mVoxelsPerSideY); 
+        assert(z < mVoxelsPerSideZ); 
 
         size_t index = Index(x, y, z);
         return (mVoxels[index / WordSize()] & (T(1) << (index % WordSize()))) != 0;
@@ -114,9 +129,9 @@ public:
     __host__ __device__
     void XorWord(size_t x, size_t y, size_t z, T word)
     {
-        assert(x < mVoxelsPerSide); 
-        assert(y < mVoxelsPerSide); 
-        assert(z < mVoxelsPerSide); 
+        assert(x < mVoxelsPerSideX); 
+        assert(y < mVoxelsPerSideY); 
+        assert(z < mVoxelsPerSideZ); 
 
         size_t index = Index(x, y, z);
         if constexpr (device) {
@@ -130,9 +145,9 @@ public:
     __host__ __device__
     void SetWord(size_t x, size_t y, size_t z, T word, fun op)
     {
-        assert(x < mVoxelsPerSide); 
-        assert(y < mVoxelsPerSide); 
-        assert(z < mVoxelsPerSide); 
+        assert(x < mVoxelsPerSideX); 
+        assert(y < mVoxelsPerSideY); 
+        assert(z < mVoxelsPerSideZ); 
 
         size_t index = Index(x, y, z);
         op(mVoxels[index / WordSize()], word);
@@ -141,20 +156,16 @@ public:
     __host__ __device__
     T GetWord(size_t x, size_t y, size_t z) const
     {
-
-        assert(x < mVoxelsPerSide); 
-        assert(y < mVoxelsPerSide); 
-        assert(z < mVoxelsPerSide); 
+        assert(x < mVoxelsPerSideX); 
+        assert(y < mVoxelsPerSideY); 
+        assert(z < mVoxelsPerSideZ); 
 
         size_t index = Index(x, y, z);
         return mVoxels[index / WordSize()];
     }
 
     __host__ __device__
-    void SetOrigin(float x, float y, float z) { mOriginX = x; mOriginY = y; mOriginZ = z; }
-
-    __host__ __device__
-    inline size_t Index(size_t x, size_t y, size_t z) const { return (z * mVoxelsPerSide * mVoxelsPerSide) + (y * mVoxelsPerSide) + x; }
+    inline size_t Index(size_t x, size_t y, size_t z) const { return (z * mVoxelsPerSideY * mVoxelsPerSideX) + (y * mVoxelsPerSideX) + x; }
 
     // The size of a single word, the voxels space are stored in block of uint (8, 16, 32 ... bit)
     __host__ __device__
@@ -162,25 +173,59 @@ public:
 
     // The size of alla voxels space (mVoxelsPerSize * mVoxelsPerSize * mVoxelsPerSize)
     __host__ __device__
-    inline size_t SpaceSize() const { return mVoxelsPerSide * mVoxelsPerSide * mVoxelsPerSide; }
+    inline size_t SpaceSize() const { return mVoxelsPerSideZ * mVoxelsPerSideY * mVoxelsPerSideX; }
 
     // The size of a side of voxels grid.
     __host__ __device__
-    inline size_t VoxelsPerSide() const { return mVoxelsPerSide; }
+    inline size_t VoxelsPerSide() const 
+    { 
+        assert(mVoxelsPerSideX == mVoxelsPerSideY && mVoxelsPerSideY == mVoxelsPerSideZ);
+        return mVoxelsPerSideX; 
+    }
+
+    // The size of X side of voxels grid.
+    __host__ __device__
+    inline size_t VoxelsPerSideX() const { return mVoxelsPerSideX; }
+
+    // The size of X side of voxels grid.
+    __host__ __device__
+    inline size_t VoxelsPerSideY() const { return mVoxelsPerSideX; }
+
+    // The size of X side of voxels grid.
+    __host__ __device__
+    inline size_t VoxelsPerSideZ() const { return mVoxelsPerSideZ; }
 
     // The size of single voxel. Understood as the side of square
     __host__ __device__
-    inline float VoxelSize() const { return mSideLength / mVoxelsPerSide; }
+    inline float VoxelSize() const { 
+        assert(mVoxelsPerSideX == mVoxelsPerSideY && mVoxelsPerSideY == mVoxelsPerSideZ);
+        return mSideLength / mVoxelsPerSideX; 
+    }
 
     // Length of a size in terms of real scale
     __host__ __device__
-    inline float SideLength() const { return mSideLength; }
+    inline float SideLength() const { 
+        assert(mVoxelsPerSideX == mVoxelsPerSideY && mVoxelsPerSideY == mVoxelsPerSideZ);
+        return mSideLength; 
+    }
 
     // How much word we need to store with a specific size
     __host__ __device__
     static inline size_t StorageSize(const size_t sideSize) { 
         return ((sideSize * sideSize * sideSize) + (WordSize() - 1)) / WordSize();
     }
+
+    // How much word we need to store with a specific size
+    __host__ __device__
+    static inline size_t StorageSize(const size_t sideSizeX, 
+                                     const size_t sideSizeY, 
+                                     const size_t sideSizeZ) 
+    { 
+        return ((sideSizeX * sideSizeY * sideSizeZ) + (WordSize() - 1)) / WordSize();
+    }
+
+    __host__ __device__
+    void SetOrigin(float x, float y, float z) { mOriginX = x; mOriginY = y; mOriginZ = z; }
 
     // Get Origin X value of grid
     __host__ __device__
@@ -194,10 +239,12 @@ public:
     __host__ __device__
     inline float OriginZ() const { return mOriginZ; }
 
-    inline void Print() const {
-        for(int z = 0; z <= mVoxelsPerSide; ++z) {
-            for (int y = 0; y <= mVoxelsPerSide; ++y) {
-                for (int x = 0; x <= mVoxelsPerSide; ++x) {
+
+    inline void Print() const 
+    {
+        for(int z = 0; z <= mVoxelsPerSideZ; ++z) {
+            for (int y = 0; y <= mVoxelsPerSideY; ++y) {
+                for (int x = 0; x <= mVoxelsPerSideX; ++x) {
                     printf("%d ", (*this)(x, y, z));    
                 }
                 printf("\n");
@@ -227,10 +274,15 @@ public:
 
     HostVoxelsGrid(const DeviceVoxelsGrid<T>& device) 
     {
-        const size_t storageSize = VoxelsGrid<T>::StorageSize(device.View().mVoxelsPerSide);
+
+        cpuAssert(device.View().mVoxelsPerSideX == device.View().mVoxelsPerSideY &&
+                  device.View().mVoxelsPerSideY == device.View().VoxelsPerSideZ(), 
+                  "You can't copy from device grid with differente voxels per side");
+
+        const size_t storageSize = VoxelsGrid<T>::StorageSize(device.View().mVoxelsPerSideX);
         mData = std::make_unique<T[]>(storageSize);
 
-        mView = VoxelsGrid<T>(mData.get(), device.View().mVoxelsPerSide, device.View().mSideLength);
+        mView = VoxelsGrid<T>(mData.get(), device.View().mVoxelsPerSideX, device.View().mSideLength);
         gpuAssert(cudaMemcpy(mData.get(), device.mData, storageSize * sizeof(T), cudaMemcpyDeviceToHost));
         mView.SetOrigin(device.View().OriginX(), device.View().OriginY(), device.View().OriginZ());
     }
@@ -263,9 +315,13 @@ public:
 
     DeviceVoxelsGrid(const HostVoxelsGrid<T>& host) 
     {
-        const size_t storageSize = VoxelsGrid<T>::StorageSize(host.View().mVoxelsPerSide) * sizeof(T);
+        cpuAssert(host.View().mVoxelsPerSideX == host.View().mVoxelsPerSideY &&
+                  host.View().mVoxelsPerSideY == host.View().VoxelsPerSideZ(), 
+                  "You can't copy from host grid with differente voxels per side");
+
+        const size_t storageSize = VoxelsGrid<T>::StorageSize(host.View().mVoxelsPerSideX) * sizeof(T);
         gpuAssert(cudaMalloc((void**) &mData, storageSize));
-        mView = VoxelsGrid<T, true>(mData, host.View().mVoxelsPerSide, host.View().mSideLength);
+        mView = VoxelsGrid<T, true>(mData, host.View().mVoxelsPerSideX, host.View().mSideLength);
         gpuAssert(cudaMemcpy(mData, host.mData.get(), storageSize, cudaMemcpyHostToDevice));
         mView.SetOrigin(host.View().OriginX(), host.View().OriginY(), host.View().OriginZ());
     }

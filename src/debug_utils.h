@@ -15,6 +15,11 @@ __host__ inline int NextPow2(const int n, const int max) {
     return pow2;
 }
 
+
+enum class Types {
+    SEQUENTIAL, NAIVE, TILED
+};
+
 __host__ __device__ inline const char* getCurrentTimestamp() {
     #ifndef __CUDA_ARCH__
         static char timestamp_buffer[64];

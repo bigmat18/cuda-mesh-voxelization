@@ -105,14 +105,14 @@ __global__ void JPAProcessingNaive(const int K, const VoxelsGrid<T, true> grid, 
 }
 
 template <Types type, typename T>
-void Compute(VoxelsGrid<T, true>& grid, std::vector<SDF>& sdfValues)
+void Compute(DeviceVoxelsGrid<T>& grid, std::vector<SDF>& sdfValues)
 requires (type == Types::NAIVE)
 { 
     PROFILING_SCOPE("Naive JFA");
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
-    const size_t numVoxels = grid.SpaceSize();
+    const size_t numVoxels = grid.View().SpaceSize();
     const size_t blockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
     const size_t gridSize = (numVoxels + blockSize - 1) / blockSize;
 
@@ -121,7 +121,7 @@ requires (type == Types::NAIVE)
     gpuAssert(cudaMalloc((void**) &devSDFValues, sdfValues.size() * sizeof(SDF)));
     gpuAssert(cudaMemcpy(devSDFValues, &sdfValues[0], sdfValues.size() * sizeof(SDF), cudaMemcpyHostToDevice));
 
-    JFAInizializationNaive<T><<< gridSize, blockSize >>>(grid, devSDFValues);
+    JFAInizializationNaive<T><<< gridSize, blockSize >>>(grid.View(), devSDFValues);
 
     gpuAssert(cudaPeekAtLastError());
     cudaDeviceSynchronize();
@@ -130,9 +130,9 @@ requires (type == Types::NAIVE)
     gpuAssert(cudaMalloc((void**) &devSDFValuesApp, sdfValues.size() * sizeof(SDF)));
     gpuAssert(cudaMemcpy(devSDFValuesApp, devSDFValues, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
 
-    for(int k = grid.VoxelsPerSide() / 2; k >= 1; k /= 2) {
-        JPAProcessingNaive<T><<< gridSize, blockSize >>>(k, grid, devSDFValues, devSDFValuesApp);
-        gpuAssert(cudaPeekAtLastError());
+    for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
+        JPAProcessingNaive<T><<< gridSize, blockSize >>>(k, grid.View(), devSDFValues, devSDFValuesApp); 
+        gpuAssert(cudaPeekAtLastError()); 
         cudaDeviceSynchronize();
         gpuAssert(cudaMemcpy(devSDFValues, devSDFValuesApp, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
     }

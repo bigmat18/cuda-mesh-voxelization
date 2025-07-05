@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
     DeviceVoxelsGrid32bit devTest(test);
 
     std::vector<JFA::SDF> sdfValues(8 * 8 * 8);
-    JFA::Compute<JFA::Types::NAIVE, uint32_t>(devTest.View(), sdfValues);
+    JFA::Compute<JFA::Types::NAIVE, uint32_t>(devTest, sdfValues);
 
     HostVoxelsGrid32bit out(devTest);
 
