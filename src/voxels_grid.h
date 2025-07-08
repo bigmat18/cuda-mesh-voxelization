@@ -240,6 +240,7 @@ public:
     inline float OriginZ() const { return mOriginZ; }
 
 
+    __host__ __device__
     inline void Print() const 
     {
         for(int z = 0; z <= mVoxelsPerSideZ; ++z) {
@@ -276,7 +277,7 @@ public:
     {
 
         cpuAssert(device.View().mVoxelsPerSideX == device.View().mVoxelsPerSideY &&
-                  device.View().mVoxelsPerSideY == device.View().VoxelsPerSideZ(), 
+                  device.View().mVoxelsPerSideY == device.View().mVoxelsPerSideZ, 
                   "You can't copy from device grid with differente voxels per side");
 
         const size_t storageSize = VoxelsGrid<T>::StorageSize(device.View().mVoxelsPerSideX);

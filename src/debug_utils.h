@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstdio>
 #include <cuda_runtime_api.h>
 #include <string>
@@ -72,7 +73,7 @@ inline void gpuAssertBase(cudaError_t code, const char* file, int line)
 inline void cpuAssertBase(bool condition, const std::string msg,
                           const char* file, int line)
 {
-    if (!condition) { 
+    if (!condition) {
         printf("[%s:%d] CPU Assert: %s", file, line, msg.c_str());
         exit(-1);
     }
