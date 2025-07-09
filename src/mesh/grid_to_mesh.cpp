@@ -27,7 +27,7 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
     for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
         for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
             for (uint x = 0; x < grid.VoxelsPerSide(); ++x) {
-                if(!grid(x, y, z))
+                if(!grid.Voxel(x, y, z))
                     continue;
                 
                 AddFacesVertexXY<T, false>(x, y, z, grid, mesh, faces_marked, vertices_marked);

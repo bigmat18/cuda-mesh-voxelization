@@ -66,16 +66,16 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
         int z = centerTileZ + dz;
 
         if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
-            gridSMEM.SetWord(0, smemY, smemZ, grid.GetWord(x, y, z));
+            gridSMEM.Word(0, smemY, smemZ) = grid.Word(x, y, z);
         } else {
-            gridSMEM.SetWord(0, smemY, smemZ, 0);
+            gridSMEM.Word(0, smemY, smemZ) = 0;
         }
 
         x = centerTileX;
         if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
-            gridSMEM.SetWord(grid.WordSize(), smemY, smemZ, grid.GetWord(x, y, z));
+            gridSMEM.Word(grid.WordSize(), smemY, smemZ) = grid.Word(x, y, z);
         } else {
-            gridSMEM.SetWord(grid.WordSize(), smemY, smemZ, 0);
+            gridSMEM.Word(grid.WordSize(), smemY, smemZ) = 0;
         }
     }
 
@@ -93,9 +93,9 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
             int z = centerTileZ + dz;
 
             if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
-                gridSMEM.SetWord(grid.WordSize() * 2, smemY, smemZ, grid.GetWord(x, y, z));
+                gridSMEM.Word(grid.WordSize() * 2, smemY, smemZ) = grid.Word(x, y, z);
             } else {
-                gridSMEM.SetWord(grid.WordSize() * 2, smemY, smemZ, 0);
+                gridSMEM.Word(grid.WordSize() * 2, smemY, smemZ) = 0;
             }
         }
 
@@ -105,7 +105,7 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
         int tileY = (OUT_TILE_DIM / 2) + threadIdx.y;
         int tileZ = (OUT_TILE_DIM / 2) + threadIdx.z;    
 
-        if(gridSMEM(tileX, tileY, tileZ)) {
+        if(gridSMEM.Voxel(tileX, tileY, tileZ)) {
             bool found = false;
             for(int z = -1; z <= 1 && !found; z++) {
                 for(int y = -1; y <= 1 && !found; y++) {
@@ -117,7 +117,7 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
                         int ny = tileY + y;
                         int nz = tileZ + z;
 
-                        if(!gridSMEM(nx, ny, nz)) {
+                        if(!gridSMEM.Voxel(nx, ny, nz)) {
                             SDFValues[voxelIndex] = SDF({voxelX, voxelY, voxelZ, 0});
                             found = true;
                         }
@@ -132,8 +132,8 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
             int smemZ = (blockIndex % OUT_TILE_DIM);
             int smemY = (blockIndex / OUT_TILE_DIM);
 
-            gridSMEM.SetWord(0, smemY, smemZ, gridSMEM(grid.WordSize(), smemY, smemZ));
-            gridSMEM.SetWord(grid.WordSize(), smemY, smemZ, gridSMEM(grid.WordSize() * 2, smemY, smemZ));
+            gridSMEM.Word(0, smemY, smemZ) = gridSMEM.Word(grid.WordSize(), smemY, smemZ);
+            gridSMEM.Word(grid.WordSize(), smemY, smemZ) = gridSMEM.Word(grid.WordSize() * 2, smemY, smemZ);
         }
     }
 }   
@@ -149,7 +149,7 @@ __global__ void JFAInizializationNaive(const VoxelsGrid<T, true> grid, SDF* SDFV
     const int voxelY = (voxelIndex % (grid.VoxelsPerSide() * grid.VoxelsPerSide())) / grid.VoxelsPerSide();
     const int voxelX = voxelIndex % grid.VoxelsPerSide();
 
-    if(!grid(voxelX, voxelY, voxelZ))
+    if(!grid.Voxel(voxelX, voxelY, voxelZ))
         return;
 
     for(int z = -1; z <= 1; z++) {
@@ -165,7 +165,7 @@ __global__ void JFAInizializationNaive(const VoxelsGrid<T, true> grid, SDF* SDFV
                                 ny < 0 || ny >= grid.VoxelsPerSide() || 
                                 nz < 0 || nz >= grid.VoxelsPerSide();
 
-                if(isBorder || !grid(nx, ny, nz)) {
+                if(isBorder || !grid.Voxel(nx, ny, nz)) {
                     SDFValues[voxelIndex] = SDF({voxelX, voxelY, voxelZ, 0});
                     return;
                 }
@@ -184,7 +184,6 @@ __global__ void JPAProcessingNaive(const int K, const VoxelsGrid<T, true> grid, 
     const int voxelZ = voxelIndex / (grid.VoxelsPerSide() * grid.VoxelsPerSide());
     const int voxelY = (voxelIndex % (grid.VoxelsPerSide() * grid.VoxelsPerSide())) / grid.VoxelsPerSide();
     const int voxelX = voxelIndex % grid.VoxelsPerSide();
-
 
     for(int z = -1; z <= 1; z++) {
         for(int y = -1; y <= 1; y++) {
@@ -228,7 +227,6 @@ requires (type == Types::NAIVE)
     const size_t blockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
     const size_t gridSize = (numVoxels + blockSize - 1) / blockSize;
 
-
     SDF* devSDFValues;
     gpuAssert(cudaMalloc((void**) &devSDFValues, sdfValues.size() * sizeof(SDF)));
     gpuAssert(cudaMemcpy(devSDFValues, &sdfValues[0], sdfValues.size() * sizeof(SDF), cudaMemcpyHostToDevice));
@@ -238,16 +236,16 @@ requires (type == Types::NAIVE)
     gpuAssert(cudaPeekAtLastError());
     cudaDeviceSynchronize();
 
-    //SDF* devSDFValuesApp;
-    //gpuAssert(cudaMalloc((void**) &devSDFValuesApp, sdfValues.size() * sizeof(SDF)));
-    //gpuAssert(cudaMemcpy(devSDFValuesApp, devSDFValues, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
+    SDF* devSDFValuesApp;
+    gpuAssert(cudaMalloc((void**) &devSDFValuesApp, sdfValues.size() * sizeof(SDF)));
+    gpuAssert(cudaMemcpy(devSDFValuesApp, devSDFValues, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
 
-    //for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
-        //JPAProcessingNaive<T><<< gridSize, blockSize >>>(k, grid.View(), devSDFValues, devSDFValuesApp); 
-        //gpuAssert(cudaPeekAtLastError()); 
-        //cudaDeviceSynchronize();
-        //gpuAssert(cudaMemcpy(devSDFValues, devSDFValuesApp, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
-    //}
+    for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
+        JPAProcessingNaive<T><<< gridSize, blockSize >>>(k, grid.View(), devSDFValues, devSDFValuesApp); 
+        gpuAssert(cudaPeekAtLastError()); 
+        cudaDeviceSynchronize();
+        gpuAssert(cudaMemcpy(devSDFValues, devSDFValuesApp, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
+    }
 
     gpuAssert(cudaMemcpy(sdfValues.data(), devSDFValues, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToHost));
 };
@@ -270,8 +268,7 @@ requires (type == Types::TILED)
         (grid.View().VoxelsPerSide() + grid.View().WordSize() * TILE_DIM - 1) / (grid.View().WordSize() * TILE_DIM),
         (grid.View().VoxelsPerSide() + TILE_DIM - 1) / TILE_DIM,
         (grid.View().VoxelsPerSide() + TILE_DIM - 1) / TILE_DIM
-    );
-                                                                            
+    );                                          
     
     JFAInizializationTiled<T, TILE_DIM><<< gridSize, blockSize >>>(grid.View(), devSDFValues);
 

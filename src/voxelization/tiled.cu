@@ -400,7 +400,7 @@ __global__ void TiledProcessing(const uint32_t* triangleCoords,
                     for(int bit = startX % grid.WordSize(); bit < grid.WordSize(); ++bit) {
                         newWord |= (1 << bit);
                     }
-                    grid.XorWord(x, y, z, newWord);
+                    atomicXor(&grid.Word(x, y, z), newWord);
                     startX = 0;
                 }
             }

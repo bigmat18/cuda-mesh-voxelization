@@ -5,9 +5,8 @@
 #include <chrono>
 #include <cuda_runtime.h>
 
-#ifndef CUDA_UTILS
-#define CUDA_UTILS
-
+#ifndef DEBUG_UTILS
+#define DEBUG_UTILS
 
 __host__ inline int NextPow2(const int n, const int max) {
     int pow2 = 1;
@@ -15,7 +14,6 @@ __host__ inline int NextPow2(const int n, const int max) {
         pow2 <<= 1;
     return pow2;
 }
-
 
 enum class Types {
     SEQUENTIAL, NAIVE, TILED

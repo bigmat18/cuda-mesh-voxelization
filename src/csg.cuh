@@ -41,9 +41,9 @@ __global__ void CSGProcessing(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> gri
 
     T word = 0;
     for(int i = 0; i < grid2.WordSize(); ++i) 
-        word |= grid2(x + i, y, z) << i;
+        word |= grid2.Voxel(x + i, y, z) << i;
     
-    grid1.SetWord(x, y, z, word, Op);
+    Op(grid1.Word(x, y, z), word);
 }
 
 template <typename T, typename func>

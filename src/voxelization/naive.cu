@@ -57,7 +57,7 @@ __global__ void NaiveKernel(const size_t numTriangles,
                     for(int bit = startX % grid.WordSize(); bit < grid.WordSize(); ++bit) {
                         newWord |= (1 << bit);
                     }
-                    grid.XorWord(x, y, z, newWord);
+                    atomicXor(&grid.Word(x, y, z), newWord);
                     startX = 0;
                 }
             }

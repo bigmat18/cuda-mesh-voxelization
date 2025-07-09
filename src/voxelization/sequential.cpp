@@ -48,7 +48,7 @@ __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
                     int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
                     int endX = grid.VoxelsPerSide();
                     for(int x = startX; x < endX; ++x)
-                        grid(x, y, z) ^= true;
+                        grid.Voxel(x, y, z) ^= true;
                 }
             }
         }

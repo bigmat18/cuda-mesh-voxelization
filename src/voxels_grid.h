@@ -105,7 +105,7 @@ public:
     }
 
     __host__ __device__
-    Bit operator() (size_t x, size_t y, size_t z) 
+    Bit Voxel(size_t x, size_t y, size_t z) 
     {
         assert(x < mVoxelsPerSideX); 
         assert(y < mVoxelsPerSideY); 
@@ -116,7 +116,7 @@ public:
     }
 
     __host__ __device__
-    bool operator()(size_t x, size_t y, size_t z) const 
+    bool Voxel(size_t x, size_t y, size_t z) const 
     {
         assert(x < mVoxelsPerSideX); 
         assert(y < mVoxelsPerSideY); 
@@ -126,47 +126,21 @@ public:
         return (mVoxels[index / WordSize()] & (T(1) << (index % WordSize()))) != 0;
     }
 
+    // Get the word that contains bit in position (x, y, z)
     __host__ __device__
-    void XorWord(size_t x, size_t y, size_t z, T word)
+    T& Word(size_t x, size_t y, size_t z)
     {
         assert(x < mVoxelsPerSideX); 
         assert(y < mVoxelsPerSideY); 
         assert(z < mVoxelsPerSideZ); 
 
         size_t index = Index(x, y, z);
-        if constexpr (device) {
-            atomicXor(&mVoxels[index / WordSize()], word);
-        } else {
-            mVoxels[index / WordSize()] |= word;
-        }
+        return mVoxels[index / WordSize()];
     }
 
-    template <typename fun> 
+    // Get the word that contains bit in position (x, y, z)
     __host__ __device__
-    void SetWord(size_t x, size_t y, size_t z, T word, fun op)
-    {
-        assert(x < mVoxelsPerSideX); 
-        assert(y < mVoxelsPerSideY); 
-        assert(z < mVoxelsPerSideZ); 
-
-        size_t index = Index(x, y, z);
-        op(mVoxels[index / WordSize()], word);
-    }
-
-
-    __host__ __device__
-    void SetWord(size_t x, size_t y, size_t z, T word)
-    {
-        assert(x < mVoxelsPerSideX); 
-        assert(y < mVoxelsPerSideY); 
-        assert(z < mVoxelsPerSideZ); 
-
-        size_t index = Index(x, y, z);
-        mVoxels[index / WordSize()] = word;
-    }
-
-    __host__ __device__
-    T GetWord(size_t x, size_t y, size_t z) const
+    T Word(size_t x, size_t y, size_t z) const
     {
         assert(x < mVoxelsPerSideX); 
         assert(y < mVoxelsPerSideY); 
