@@ -186,12 +186,14 @@ int main(int argc, char **argv) {
   test.View()(1, 2, 2) = true;
   test.View()(2, 2, 2) = true;
 
+  test.View().Print();
+
   DeviceVoxelsGrid32bit devTest(test);
 
   std::vector<JFA::SDF> sdfValues(size * size * size);
   JFA::Compute<JFA::Types::TILED, uint32_t>(devTest, sdfValues);
 
-  //HostVoxelsGrid32bit out(devTest);
+  HostVoxelsGrid32bit out(devTest);
 
   //for (int z = 0; z < out.View().VoxelsPerSide(); ++z) {
     //for (int y = 0; y < out.View().VoxelsPerSide(); ++y) {

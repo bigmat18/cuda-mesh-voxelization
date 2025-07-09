@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
 #include <vector_types.h>
@@ -32,12 +33,12 @@ __host__ __device__ inline float CalculateDistance(Position p0, Position p1)
 template <typename T, int TILE_DIM = 1>
 __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFValues)
 {
-    const int OUT_TILE_DIM = TILE_DIM + 2;
-    const int SMEM_DIM = OUT_TILE_DIM * OUT_TILE_DIM;
+    constexpr int OUT_TILE_DIM = TILE_DIM + 2;
+    constexpr int SMEM_DIM = OUT_TILE_DIM * OUT_TILE_DIM;
 
-    __shared__ T SMEM[TILE_DIM + 2][TILE_DIM + 2][3];
+    __shared__ T SMEM[SMEM_DIM * 3];
 
-    VoxelsGrid<T, true> gridSMEM(&SMEM[0][0][0], (SMEM_DIM * 3) * grid.WordSize(), 0);
+    VoxelsGrid<T, true> gridSMEM(&SMEM[0], grid.WordSize() * 3, OUT_TILE_DIM, OUT_TILE_DIM);
 
     const int voxelX = blockIdx.x * (grid.WordSize() * TILE_DIM) + threadIdx.x;
     const int voxelY = blockIdx.y * TILE_DIM + threadIdx.y;
@@ -46,68 +47,71 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
 
     if(voxelIndex >= grid.SpaceSize())
         return;
-
     
-    const int blockIndex = (threadIdx.z * blockDim.x * blockDim.y) + (threadIdx.y * blockDim.x) + threadIdx.x;
-    //const int smemX = blockIndex % OUT_TILE_DIM;
-    //const int smemY = blockIndex / OUT_TILE_DIM;
+    const int blockIndex = (threadIdx.z * blockDim.x * blockDim.y) + (threadIdx.y * blockDim.x) + threadIdx.x; 
 
-    //if(blockIndex < SMEM_DIM) {
-        //int dz = -(OUT_TILE_DIM / 2) + smemX;
-        //int dy = -(OUT_TILE_DIM / 2) + smemY;
+    if(blockIndex < SMEM_DIM) {
+        int smemZ = (blockIndex % OUT_TILE_DIM);
+        int smemY = (blockIndex / OUT_TILE_DIM);
 
-        //int x = (voxelX / grid.WordSize()) - 1;
-        //int y = voxelY + dy;    
-        //int z = voxelZ + dz;
+        int dz = -(OUT_TILE_DIM / 2) + smemZ;
+        int dy = -(OUT_TILE_DIM / 2) + smemY;
 
-        //if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
-            //gridSMEM(smemX, smemY, 0) = grid.GetWord(x, y, z);
-        //} else {
-            //gridSMEM(smemX, smemY, 0) = 0;
-        //}
+        int x = voxelX - grid.WordSize(); 
+        int y = voxelY + dy;    
+        int z = voxelZ + dz;
 
+        if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
+            gridSMEM.SetWord(0, smemY, smemZ, grid.GetWord(x, y, z));
+        } else {
+            gridSMEM.SetWord(0, smemY, smemZ, 0);
+        }
 
-        //x = (voxelX / grid.WordSize()); 
-        //if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
-            //gridSMEM(smemX, smemY, 1) = grid.GetWord(x, y, z);
-        //} else {
-            //gridSMEM(smemX, smemY, 1) = 0;
-        //}
-    //}
-
-    __syncthreads();
-
-    if(blockIndex== 0) {
-        gridSMEM.Print();
+        x = voxelX;
+        if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
+            gridSMEM.SetWord(grid.WordSize(), smemY, smemZ, grid.GetWord(x, y, z));
+        } else {
+            gridSMEM.SetWord(grid.WordSize(), smemY, smemZ, 0);
+        }
     }
 
-    //for(int depth = 0; depth < TILE_DIM; ++depth) {
+    for(int depth = 0; depth < 1; ++depth) {
 
-        //if(blockIndex < SMEM_DIM) {
-            //int dz = -(OUT_TILE_DIM / 2) + smemX;
-            //int dy = -(OUT_TILE_DIM / 2) + smemY;
+        if(blockIndex < SMEM_DIM) {
+            int smemZ = (blockIndex % OUT_TILE_DIM);
+            int smemY = (blockIndex / OUT_TILE_DIM);
 
-            //int x = (voxelX / grid.WordSize()) + (depth * grid.WordSize()) + 1;
-            //int y = voxelY + dy;    
-            //int z = voxelZ + dz;
+            int dz = -(OUT_TILE_DIM / 2) + smemZ;
+            int dy = -(OUT_TILE_DIM / 2) + smemY;
 
-            //if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
-                //gridSMEM(smemX, smemY, 2) = grid.GetWord(x, y, z);
-            //} else {
-                //gridSMEM(smemX, smemY, 2) = 0;
-            //}
-        //}
 
-        //__syncthreads();
+            int x = voxelX + ((depth + 1) * grid.WordSize());
+            int y = voxelY + dy;    
+            int z = voxelZ + dz;
+
+            if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
+                gridSMEM.SetWord(grid.WordSize() * 2, smemY, smemZ, grid.GetWord(x, y, z));
+            } else {
+                gridSMEM.SetWord(grid.WordSize() * 2, smemY, smemZ, 0);
+            }
+        }
+
+        __syncthreads();
         
-        //int tileX = threadIdx.x;
+        if(blockIndex == 0) {
+            gridSMEM.Print();
+        }
+
+        //int tileX = grid.WordSize() + threadIdx.x;
         //int tileY = (OUT_TILE_DIM / 2);
         //int tileZ = (OUT_TILE_DIM / 2);
 
-        //if(!gridSMEM(tileX, tileY, tileZ)) {
-            //for(int z = -1; z <= 1; z++) {
-                //for(int y = -1; y <= 1; y++) {
-                    //for(int x = -1; x <= 1; x++) {
+
+        //if(gridSMEM(tileX, tileY, tileZ)) {
+            //bool found = false;
+            //for(int z = -1; z <= 1 && !found; z++) {
+                //for(int y = -1; y <= 1 && !found; y++) {
+                    //for(int x = -1; x <= 1 && !found; x++) {
                         //if(x == 0 && y == 0 && z == 0)
                             //continue;
 
@@ -115,9 +119,10 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
                         //int ny = tileY + y;
                         //int nz = tileZ + z;
 
+                        //printf("ciao");
                         //if(!gridSMEM(nx, ny, nz)) {
                             //SDFValues[voxelIndex] = SDF({voxelX, voxelY, voxelZ, 0});
-                            //return;
+                            //found = true;
                         //}
                     //}
                 //}
@@ -126,11 +131,14 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
 
         //__syncthreads();
 
-        //if(blockIndex < SMEM_DIM) {
+        //if(blockIndex < SMEM_DIM) { 
+            //int smemZ = (blockIndex % OUT_TILE_DIM);
+            //int smemY = (blockIndex / OUT_TILE_DIM);
+
             //gridSMEM(smemX, smemY, 0) = gridSMEM(smemX, smemY, 1);
             //gridSMEM(smemX, smemY, 1) = gridSMEM(smemX, smemY, 2);
         //}
-    //}
+    }
 }   
 
 template <typename T>
@@ -259,7 +267,7 @@ requires (type == Types::TILED)
     gpuAssert(cudaMalloc((void**) &devSDFValues, sdfValues.size() * sizeof(SDF)));
     gpuAssert(cudaMemcpy(devSDFValues, &sdfValues[0], sdfValues.size() * sizeof(SDF), cudaMemcpyHostToDevice));
 
-    const size_t TILE_DIM = 1;
+    const size_t TILE_DIM = 3;
     dim3 blockSize(grid.View().WordSize(), TILE_DIM, TILE_DIM);
     dim3 gridSize(
         (grid.View().VoxelsPerSide() + grid.View().WordSize() * TILE_DIM - 1) / (grid.View().WordSize() * TILE_DIM),
@@ -268,11 +276,12 @@ requires (type == Types::TILED)
     );
                                                                             
     
-    JFAInizializationTiled<T, TILE_DIM><<< gridSize, blockSize >>>(grid.View(), devSDFValues);
+    JFAInizializationTiled<T, TILE_DIM><<< 1, blockSize >>>(grid.View(), devSDFValues);
 
     gpuAssert(cudaPeekAtLastError());
     cudaDeviceSynchronize();
 
+    gpuAssert(cudaMemcpy(sdfValues.data(), devSDFValues, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToHost));
 };
 
 };

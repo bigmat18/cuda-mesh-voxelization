@@ -153,6 +153,18 @@ public:
         op(mVoxels[index / WordSize()], word);
     }
 
+
+    __host__ __device__
+    void SetWord(size_t x, size_t y, size_t z, T word)
+    {
+        assert(x < mVoxelsPerSideX); 
+        assert(y < mVoxelsPerSideY); 
+        assert(z < mVoxelsPerSideZ); 
+
+        size_t index = Index(x, y, z);
+        mVoxels[index / WordSize()] = word;
+    }
+
     __host__ __device__
     T GetWord(size_t x, size_t y, size_t z) const
     {
@@ -243,9 +255,9 @@ public:
     __host__ __device__
     inline void Print() const 
     {
-        for(int z = 0; z <= mVoxelsPerSideZ; ++z) {
-            for (int y = 0; y <= mVoxelsPerSideY; ++y) {
-                for (int x = 0; x <= mVoxelsPerSideX; ++x) {
+        for(int z = 0; z < mVoxelsPerSideZ; ++z) {
+            for (int y = 0; y < mVoxelsPerSideY; ++y) {
+                for (int x = 0; x < mVoxelsPerSideX; ++x) {
                     printf("%d ", (*this)(x, y, z));    
                 }
                 printf("\n");
