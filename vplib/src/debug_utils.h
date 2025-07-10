@@ -67,7 +67,7 @@ inline void cpuAssertBase(bool condition, const std::string msg,
 {
     if (!condition) {
         printf("[%s:%d] CPU Assert: %s", file, line, msg.c_str());
-        assert(condition);
+        exit(-1);
     }
 }
 

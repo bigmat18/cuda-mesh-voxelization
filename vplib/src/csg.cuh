@@ -6,6 +6,10 @@
 
 namespace CSG {
 
+enum class Types {
+    UNION, INTERSECTION, DIFFERENCE, VOID
+};
+
 template <typename T> 
 struct Union {
     __host__ __device__

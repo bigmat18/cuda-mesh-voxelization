@@ -18,4 +18,5 @@ file(GLOB_RECURSE CU_FILES "*.cu")
 set_source_files_properties(${CPP_FILES} PROPERTIES LANGUAGE CUDA)
 
 add_executable(cli ${CPP_FILES} ${CU_FILES})
-target_link_libraries(cli PRIVATE vplib)
+
+target_link_libraries(cli PRIVATE vplib cxxopts)
