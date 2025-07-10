@@ -33,14 +33,6 @@ __host__ __device__ inline const char* getCurrentTimestamp() {
     #endif
 }
 
-__device__ __host__
-constexpr std::string_view file_name(std::string_view path) {
-    size_t pos = path.find_last_of("/\\");
-    return (pos == std::string_view::npos) ? path : path.substr(pos + 1);
-}
-
-#define __FILENAME__ file_name(__FILE__).data()
-
 #if LOGGING 
 #define LOG_INTERNAL(level_str, format, ...)                               \
 {                                                                          \
@@ -60,6 +52,7 @@ constexpr std::string_view file_name(std::string_view path) {
 
 #define LOG_DEBUG(format, ...) LOG_INTERNAL("DEBUG", format, ##__VA_ARGS__)
 
+__host__
 inline void gpuAssertBase(cudaError_t code, const char* file, int line)
 {
     if (code != cudaSuccess) {
@@ -68,12 +61,13 @@ inline void gpuAssertBase(cudaError_t code, const char* file, int line)
     }
 }
 
+__host__
 inline void cpuAssertBase(bool condition, const std::string msg,
                           const char* file, int line)
 {
     if (!condition) {
         printf("[%s:%d] CPU Assert: %s", file, line, msg.c_str());
-        exit(-1);
+        assert(condition);
     }
 }
 

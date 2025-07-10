@@ -1,16 +1,16 @@
-#include "mesh/mesh.h"
-#include <bounding_box.h>
-#include <csg.cuh>
+#include <string>
 #include <cstddef>
-#include <cstdint>
-#include <jfa.cuh>
-#include <memory>
+
 #include <mesh/grid_to_mesh.h>
 #include <mesh/mesh_io.h>
-#include <profiling.h>
-#include <string>
-#include <vector>
+#include <mesh/mesh.h>
+
 #include <voxelization/voxelization.cuh>
+#include <csg.cuh>
+#include <jfa.cuh>
+
+#include <bounding_box.h>
+#include <profiling.h>
 #include <voxels_grid.h>
 
 #define EXPORT_STEPS 1

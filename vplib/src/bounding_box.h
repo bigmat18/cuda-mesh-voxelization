@@ -9,7 +9,7 @@
 #ifndef BOUNDING_BOX_H
 #define BOUNDING_BOX_H
 
-template<bool device = false> __host__ __device__ 
+template<bool device = false> __host__ __device__
 float CalculateBoundingBox(std::span<Position> coordinates,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxX = std::nullopt,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxY = std::nullopt,
