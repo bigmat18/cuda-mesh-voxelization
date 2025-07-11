@@ -45,7 +45,7 @@ __global__ void JFAInizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFV
     const int voxelZ = blockIdx.z * TILE_DIM + threadIdx.z;
     const int voxelIndex = grid.Index(voxelX, voxelY, voxelZ);
 
-    if(voxelIndex >= grid.SpaceSize())
+    if(voxelIndex >= grid.Size())
         return;
     
     const int blockIndex = (threadIdx.z * blockDim.x * blockDim.y) + (threadIdx.y * blockDim.x) + threadIdx.x;
@@ -142,7 +142,7 @@ template <typename T>
 __global__ void JFAInizializationNaive(const VoxelsGrid<T, true> grid, SDF* SDFValues) 
 {
     const int voxelIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
-    if(voxelIndex >= grid.SpaceSize())
+    if(voxelIndex >= grid.Size())
         return;
 
     const int voxelZ = voxelIndex / (grid.VoxelsPerSide() * grid.VoxelsPerSide());
@@ -178,7 +178,7 @@ template <typename T>
 __global__ void JPAProcessingNaive(const int K, const VoxelsGrid<T, true> grid, const SDF* valuesIn, SDF* valuesOut) {
 
     const int voxelIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
-    if(voxelIndex >= grid.SpaceSize())
+    if(voxelIndex >= grid.Size())
         return;
 
     const int voxelZ = voxelIndex / (grid.VoxelsPerSide() * grid.VoxelsPerSide());
@@ -223,7 +223,7 @@ requires (type == Types::NAIVE)
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
-    const size_t numVoxels = grid.View().SpaceSize();
+    const size_t numVoxels = grid.View().Size();
     const size_t blockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
     const size_t gridSize = (numVoxels + blockSize - 1) / blockSize;
 

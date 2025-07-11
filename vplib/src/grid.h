@@ -11,8 +11,16 @@
 #include <sys/types.h>
 
 template <typename T>
+class HostGrid;
+
+template <typename T>
+class DeviceGrid;
+
+template <typename T>
 class Grid 
 {
+protected:
+
     using uint = unsigned int;
 
     size_t mSizeX = 1;
@@ -72,23 +80,17 @@ public:
         }
     }
 
-private:
+protected:
 
     __host__ __device__
     inline uint Index(const uint x, const uint y, const uint z) const 
     {
         return x + (y * mSizeX) + (z * mSizeX * mSizeY);
     }
+
+    friend class HostGrid<T>;
+    friend class DeviceGrid<T>;
 };
-
-
-
-template <typename T>
-class HostGrid;
-
-template <typename T>
-class DeviceGrid;
-
 
 template <typename T>
 class HostGrid 
@@ -97,24 +99,26 @@ class HostGrid
     Grid<T> mView;
 
 public:
-    HostGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ)
+    HostGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ, const T& initValue)
     {
         mData = std::make_unique<T[]>(sizeX * sizeY * sizeZ);
         mView = Grid(mData.get(), sizeX, sizeY, sizeZ);
-        std::fill(mView.mGrid.begin(), mView.mGrid.end(), 0);
+        std::fill(mView.mGrid.begin(), mView.mGrid.end(), initValue);
     }
 
     HostGrid(const DeviceGrid<T>& device) 
     {
-        mData = std::make_unique<T[]>(device.mSizeX * device.mSizeY * device.mSizeZ);
-        mView = Grid<T>(mData.get(), device.mSizeX, device.mSizeY, device.mSizeZ);
+        const Grid v = device.View();
+        mData = std::make_unique<T[]>(v.mSizeX * v.mSizeY * v.mSizeZ);
+        mView = Grid<T>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
         gpuAssert(cudaMemcpy(mData.get(), device.mData, mView.Size() * sizeof(T), cudaMemcpyDeviceToHost));
     }
 
     HostGrid(const HostGrid& other) 
     {
-        mData = std::make_unique<T[]>(other.mSizeX * other.mSizeY * other.mSizeZ);
-        mView = Grid(mData.get(), other.mSizeX, other.mSizeY, other.mSizeZ);
+        const Grid v = other.View();
+        mData = std::make_unique<T[]>(v.mSizeX * v.mSizeY * v.mSizeZ);
+        mView = Grid(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
         std::copy(mData.get(), mData.get() + mView.Size(), other.mData.get()); 
     }
 
@@ -146,42 +150,44 @@ class DeviceGrid
     Grid<T> mView;
 
 public:
-    DeviceGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ)
+    DeviceGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ, const T& initValue)
     {
         const size_t storageSize = (sizeX * sizeY * sizeZ) * sizeof(T);
 
         gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-        gpuAssert(cudaMemset(mData, 0, storageSize));
+        gpuAssert(cudaMemset(mData, initValue, storageSize));
         mView = Grid(mData, sizeX, sizeY, sizeZ);
     }
 
     DeviceGrid(const HostGrid<T>& host) 
     {
-        const size_t storageSize = (host.mSizeX * host.mSizeY * host.mSizeZ) * sizeof(T);
+        const Grid v = host.View();
+        const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ) * sizeof(T);
 
         gpuAssert(cudaMalloc((void**) &mData, storageSize));
         gpuAssert(cudaMemcpy(mData, host.mData.get(), storageSize, cudaMemcpyHostToDevice));
-        mView = Grid(mData, host.mSizeX, host.mSizeY, host.mSizeZ);
+        mView = Grid(mData, v.mSizeX, v.mSizeY, v.mSizeZ);
     }
 
     DeviceGrid(const DeviceGrid& other) 
     {
-        const size_t storageSize = (other.mSizeX * other.mSizeY * other.mSizeZ) * sizeof(T);
+        const Grid v = other.View();
+        const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ) * sizeof(T);
 
         gpuAssert(cudaMalloc((void**) &mData, storageSize));   
         gpuAssert(cudaMemcpy(mData, other.mData, storageSize, cudaMemcpyDeviceToDevice));
-        mView = Grid(mData, other.mSizeX, other.mSizeY, other.mSizeZ);
+        mView = Grid(mData, v.mSizeX, v.mSizeY, v.mSizeZ);
     }
 
     DeviceGrid(DeviceGrid&& other) { swap(other); }
-
-    DeviceGrid& operator=(const DeviceGrid& other) { swap(other); return *this; }
 
     ~DeviceGrid()
     {
         if(mData)   
             gpuAssert(cudaFree(mData));
-    }   
+    }
+
+    DeviceGrid& operator=(const DeviceGrid& other) { swap(other); return *this; }
 
     void swap(DeviceGrid& other)
     {
@@ -189,6 +195,8 @@ public:
         swap(mData, other.mData);
         swap(mView, other.mView);
     }
+
+    friend void swap(DeviceGrid& first, DeviceGrid& second) { first.swap(second); }
 
     inline Grid<T>& View() { return mView; }
 

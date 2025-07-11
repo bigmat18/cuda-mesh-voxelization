@@ -32,7 +32,7 @@ template <typename T, typename func>
 __global__ void CSGProcessing(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> grid2, func Op)
 {
 
-    const int numWord = grid1.SpaceSize() * grid1.WordSize();
+    const int numWord = grid1.Size() * grid1.WordSize();
     const int wordIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
     const int voxelIndex = wordIndex * grid1.WordSize();
 
@@ -55,13 +55,13 @@ void Compute(DeviceVoxelsGrid<T>& grid1, DeviceVoxelsGrid<T>& grid2, func Op)
 { 
     cpuAssert(grid1.View().VoxelsPerSide() == grid2.View().VoxelsPerSide(), 
               "grid1 and grid2 must have same voxels per side");
-    cpuAssert(grid1.View().SideLength() == grid2.View().SideLength(),
+    cpuAssert(grid1.View().VoxelSize() == grid2.View().VoxelSize(),
               "grid1 and grid2 must have same side length");
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 
-    const size_t numWord = (grid1.View().SpaceSize() + grid1.View().WordSize() - 1) / grid1.View().WordSize();
+    const size_t numWord = (grid1.View().Size() + grid1.View().WordSize() - 1) / grid1.View().WordSize();
     const size_t blockSize = NextPow2(numWord, prop.maxThreadsDim[0] / 2);
     const size_t gridSize = (numWord + blockSize - 1) / blockSize;
         

@@ -1,7 +1,9 @@
-#include <grid.h>
+#include "grid.h"
 #include <debug_utils.h>
-#include <csg.cuh>
+//#include <csg.cuh>
 #include <cxxopts.hpp>
+
+#include <voxels_grid.h>
 
 int main(int argc, char **argv) {
     const int device = 0;
@@ -29,10 +31,23 @@ int main(int argc, char **argv) {
 
     const std::vector<std::string> IN_FILENAMES = result["filenames"].as<std::vector<std::string>>();
     const std::string              OUT_FILENAME = result["output"].as<std::string>();
-    const CSG::Types               OPERATION    = static_cast<CSG::Types>(result["operation"].as<int>());
+    //const CSG::Types               OPERATION    = static_cast<CSG::Types>(result["operation"].as<int>());
     const unsigned int             NUM_VOXELS   = result["num-voxels"].as<unsigned int>();
 
 
+    //HostGrid<int> test(8, 8, 6, 3);
+    //DeviceGrid<int> devTest(test);
+    //HostGrid<int> test2(devTest);
+
+    //test.View().Print();
+    //test2.View().Print();
+
+    HostVoxelsGrid32bit  t(8, 4);
+    DeviceVoxelsGrid32bit devT(t);
+    HostVoxelsGrid32bit t2(devT);
+
+    t.View().Print();
+    t2.View().Print();
     //std::vector<std::unique_ptr<DeviceVoxelsGrid32bit>> grids;
 
     //size_t size = 0;

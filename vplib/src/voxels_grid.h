@@ -1,5 +1,5 @@
-#ifndef VOXELS_GRID
-#define VOXELS_GRID
+#ifndef VOXELS_GRID_H
+#define VOXELS_GRID_H
 
 #include <cstddef>
 #include <cstdint>
@@ -9,8 +9,10 @@
 #include <sys/types.h>
 #include <type_traits>
 #include <cassert>
-#include <debug_utils.h>
 #include <cuda_runtime.h>
+
+#include <debug_utils.h>
+#include <grid.h>
 
 template<typename T, typename... Types>
 __device__ constexpr bool is_one_of = 
@@ -31,15 +33,15 @@ template <
     typename T = uint32_t,
     bool device = false,
     typename = std::enable_if_t<is_one_of<T, uint8_t, uint16_t, uint32_t, uint64_t>>>
-class VoxelsGrid 
+class VoxelsGrid : protected Grid<T>
 {
-    std::span<T> mVoxels;
+    using Grid<T>::mSizeX;
+    using Grid<T>::mSizeY;
+    using Grid<T>::mSizeZ;
+    using Grid<T>::mGrid;
+    using Grid<T>::Index;
 
-    size_t mVoxelsPerSideX;
-    size_t mVoxelsPerSideY;
-    size_t mVoxelsPerSideZ;
-
-    float mSideLength; 
+    float mVoxelSize = 1; 
 
     float mOriginX = 0;
     float mOriginY = 0;
@@ -86,158 +88,112 @@ class VoxelsGrid
     };
 
 public:
+    using Grid<T>::Size;
+    using Grid<T>::SizeX;
+    using Grid<T>::SizeY;
+    using Grid<T>::SizeZ;
 
     VoxelsGrid() = default;
 
     __host__ __device__
-    VoxelsGrid(T* data, const size_t voxelsPerSideX, const size_t voxelsPerSideY, const size_t voxelsPerSideZ) :
-        mVoxelsPerSideX(voxelsPerSideX), mVoxelsPerSideY(voxelsPerSideY), mVoxelsPerSideZ(voxelsPerSideZ)
+    VoxelsGrid(T* data, 
+               const size_t voxelsPerSideX, 
+               const size_t voxelsPerSideY, 
+               const size_t voxelsPerSideZ,
+               const float voxelSize = 1.0f) :
+        mVoxelSize(voxelSize)
     {
-        mVoxels = std::span<T>(data, StorageSize(mVoxelsPerSideX, mVoxelsPerSideY, mVoxelsPerSideZ));
+        mSizeX = voxelsPerSideX; mSizeY = voxelsPerSideY; mSizeZ = voxelsPerSideZ;
+        mGrid = std::span<T>(data, CalculateStorageSize(mSizeX, mSizeY, mSizeZ));
     }
 
     __host__ __device__
-    VoxelsGrid(T* data, const size_t voxelsPerSide, const float sideLength) :
-        mVoxelsPerSideX(voxelsPerSide), mVoxelsPerSideY(voxelsPerSide), 
-        mVoxelsPerSideZ(voxelsPerSide), mSideLength(sideLength) 
+    VoxelsGrid(T* data, const size_t voxelsPerSide, const float voxelSize = 1) :
+        mVoxelSize(voxelSize) 
     {
-        mVoxels = std::span<T>(data, StorageSize(mVoxelsPerSideX));
+        mSizeX = voxelsPerSide; mSizeY = voxelsPerSide; mSizeZ = voxelsPerSide;
+        mGrid = std::span<T>(data, CalculateStorageSize(mSizeX));
     }
 
+    // ======= Method to acces ad voxels data ========
     __host__ __device__
-    Bit Voxel(size_t x, size_t y, size_t z) 
+    Bit Voxel(const uint x, const uint y, const uint z) 
     {
-        assert(x < mVoxelsPerSideX); 
-        assert(y < mVoxelsPerSideY); 
-        assert(z < mVoxelsPerSideZ);
+        assert(x < mSizeX); assert(y < mSizeY); assert(z < mSizeZ);
 
         size_t index = Index(x, y, z);
-        return Bit(&mVoxels[index / WordSize()], (T(1) << (index % WordSize())));
+        return Bit(&mGrid[index / WordSize()], (T(1) << (index % WordSize())));
     }
 
     __host__ __device__
-    bool Voxel(size_t x, size_t y, size_t z) const 
+    bool Voxel(const uint x, const uint y, const uint z) const 
     {
-        assert(x < mVoxelsPerSideX); 
-        assert(y < mVoxelsPerSideY); 
-        assert(z < mVoxelsPerSideZ); 
-
-        size_t index = Index(x, y, z);
-        return (mVoxels[index / WordSize()] & (T(1) << (index % WordSize()))) != 0;
-    }
-
-    // Get the word that contains bit in position (x, y, z)
-    __host__ __device__
-    T& Word(size_t x, size_t y, size_t z)
-    {
-        assert(x < mVoxelsPerSideX); 
-        assert(y < mVoxelsPerSideY); 
-        assert(z < mVoxelsPerSideZ); 
-
-        size_t index = Index(x, y, z);
-        return mVoxels[index / WordSize()];
-    }
-
-    // Get the word that contains bit in position (x, y, z)
-    __host__ __device__
-    T Word(size_t x, size_t y, size_t z) const
-    {
-        assert(x < mVoxelsPerSideX); 
-        assert(y < mVoxelsPerSideY); 
-        assert(z < mVoxelsPerSideZ); 
-
-        size_t index = Index(x, y, z);
-        return mVoxels[index / WordSize()];
+        assert(x < mSizeX); assert(y < mSizeY); assert(z < mSizeZ); 
+        const uint index = Index(x, y, z);
+        return (mGrid[index / WordSize()] & (T(1) << (index % WordSize()))) != 0;
     }
 
     __host__ __device__
-    inline size_t Index(size_t x, size_t y, size_t z) const { return (z * mVoxelsPerSideY * mVoxelsPerSideX) + (y * mVoxelsPerSideX) + x; }
+    T& Word(const uint x, const uint y, const uint z) { return Grid<T>::operator()(x, y, z); }
 
-    // The size of a single word, the voxels space are stored in block of uint (8, 16, 32 ... bit)
     __host__ __device__
-    static inline size_t WordSize() { return sizeof(T) * 8; }
+    T Word(const uint x, const uint y, const uint z) const { return Grid<T>::operator()(x, y, z); }
+    // ======= Method to acces ad voxels data =======
 
-    // The size of alla voxels space (mVoxelsPerSize * mVoxelsPerSize * mVoxelsPerSize)
-    __host__ __device__
-    inline size_t SpaceSize() const { return mVoxelsPerSideZ * mVoxelsPerSideY * mVoxelsPerSideX; }
-
-    // The size of a side of voxels grid.
     __host__ __device__
     inline size_t VoxelsPerSide() const 
     { 
-        assert(mVoxelsPerSideX == mVoxelsPerSideY && mVoxelsPerSideY == mVoxelsPerSideZ);
-        return mVoxelsPerSideX; 
+        assert(mSizeX == mSizeY && mSizeY == mSizeZ);
+        return mSizeX; 
     }
 
-    // The size of X side of voxels grid.
     __host__ __device__
-    inline size_t VoxelsPerSideX() const { return mVoxelsPerSideX; }
-
-    // The size of X side of voxels grid.
-    __host__ __device__
-    inline size_t VoxelsPerSideY() const { return mVoxelsPerSideX; }
-
-    // The size of X side of voxels grid.
-    __host__ __device__
-    inline size_t VoxelsPerSideZ() const { return mVoxelsPerSideZ; }
-
-    // The size of single voxel. Understood as the side of square
-    __host__ __device__
-    inline float VoxelSize() const { 
-        assert(mVoxelsPerSideX == mVoxelsPerSideY && mVoxelsPerSideY == mVoxelsPerSideZ);
-        return mSideLength / mVoxelsPerSideX; 
-    }
-
-    // Length of a size in terms of real scale
-    __host__ __device__
-    inline float SideLength() const { 
-        assert(mVoxelsPerSideX == mVoxelsPerSideY && mVoxelsPerSideY == mVoxelsPerSideZ);
-        return mSideLength; 
-    }
-
-    // How much word we need to store with a specific size
-    __host__ __device__
-    static inline size_t StorageSize(const size_t sideSize) { 
-        return ((sideSize * sideSize * sideSize) + (WordSize() - 1)) / WordSize();
-    }
-
-    // How much word we need to store with a specific size
-    __host__ __device__
-    static inline size_t StorageSize(const size_t sideSizeX, 
-                                     const size_t sideSizeY, 
-                                     const size_t sideSizeZ) 
+    inline float VoxelSize() const 
     { 
-        return ((sideSizeX * sideSizeY * sideSizeZ) + (WordSize() - 1)) / WordSize();
+        return mVoxelSize; 
     }
 
     __host__ __device__
     void SetOrigin(float x, float y, float z) { mOriginX = x; mOriginY = y; mOriginZ = z; }
 
-    // Get Origin X value of grid
     __host__ __device__
     inline float OriginX() const { return mOriginX; }
 
-    // Get Origin Y value of grid
     __host__ __device__
     inline float OriginY() const { return mOriginY; }
-
-    // Get Origin Z value of grid
+ 
     __host__ __device__
     inline float OriginZ() const { return mOriginZ; }
-
 
     __host__ __device__
     inline void Print() const 
     {
-        for(int z = 0; z < mVoxelsPerSideZ; ++z) {
-            for (int y = 0; y < mVoxelsPerSideY; ++y) {
-                for (int x = 0; x < mVoxelsPerSideX; ++x) {
-                    printf("%d ", (*this)(x, y, z));    
+        for(int z = 0; z < mSizeZ; ++z) {
+            for (int y = 0; y < mSizeY; ++y) {
+                for (int x = 0; x < mSizeX; ++x) {
+                    printf("%d ", (*this).Voxel(x, y, z));    
                 }
                 printf("\n");
             }
             printf("\n");
         }
+    }
+
+    __host__ __device__
+    static inline size_t WordSize() { return sizeof(T) * 8; }
+
+    __host__ __device__
+    static inline size_t CalculateStorageSize(const size_t size) 
+    {  
+        return ((size * size * size) + (WordSize() - 1)) / WordSize();
+    }
+
+    __host__ __device__
+    static inline size_t CalculateStorageSize(const size_t sizeX, 
+                                              const size_t sizeY, 
+                                              const size_t sizeZ) 
+    { 
+        return ((sizeX * sizeY * sizeZ) + (WordSize() - 1)) / WordSize();
     }
 
     friend class HostVoxelsGrid<T>;
@@ -252,30 +208,57 @@ class HostVoxelsGrid
     VoxelsGrid<T, false> mView;
 
 public:
-    HostVoxelsGrid(const size_t voxelsPerSide, const float sideLength)
+    HostVoxelsGrid(const size_t voxelsPerSideX, 
+                   const size_t voxelsPerSideY, 
+                   const size_t voxelsPerSideZ,
+                   const float voxelSize = 1.0f)
     {
-        mData = std::make_unique<T[]>(VoxelsGrid<T>::StorageSize(voxelsPerSide));
-        mView = VoxelsGrid<T, false>(mData.get(), voxelsPerSide, sideLength);
-        std::fill(mView.mVoxels.begin(), mView.mVoxels.end(), 0);
+        mData = std::make_unique<T[]>(VoxelsGrid<T>::CalculateStorageSize(voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ));
+        mView = VoxelsGrid<T, false>(mData.get(), voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ, voxelSize);
+        std::fill(mView.mGrid.begin(), mView.mGrid.end(), 0);
+    }
+
+    HostVoxelsGrid(const size_t voxelsPerSide, const float voxelSize = 1.0)
+    {
+        mData = std::make_unique<T[]>(VoxelsGrid<T>::CalculateStorageSize(voxelsPerSide));
+        mView = VoxelsGrid<T, false>(mData.get(), voxelsPerSide, voxelSize);
+        std::fill(mView.mGrid.begin(), mView.mGrid.end(), 0);
     }
 
     HostVoxelsGrid(const DeviceVoxelsGrid<T>& device) 
     {
+        const VoxelsGrid v = device.View();
+        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
 
-        cpuAssert(device.View().mVoxelsPerSideX == device.View().mVoxelsPerSideY &&
-                  device.View().mVoxelsPerSideY == device.View().mVoxelsPerSideZ, 
-                  "You can't copy from device grid with differente voxels per side");
-
-        const size_t storageSize = VoxelsGrid<T>::StorageSize(device.View().mVoxelsPerSideX);
         mData = std::make_unique<T[]>(storageSize);
-
-        mView = VoxelsGrid<T>(mData.get(), device.View().mVoxelsPerSideX, device.View().mSideLength);
+        mView = VoxelsGrid<T>(mData.get(), v.mSizeX, v.mVoxelSize); 
+        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
         gpuAssert(cudaMemcpy(mData.get(), device.mData, storageSize * sizeof(T), cudaMemcpyDeviceToHost));
-        mView.SetOrigin(device.View().OriginX(), device.View().OriginY(), device.View().OriginZ());
     }
 
-    HostVoxelsGrid(const HostVoxelsGrid&) = delete;
-    HostVoxelsGrid& operator=(const HostVoxelsGrid&) = delete;
+    HostVoxelsGrid(const HostVoxelsGrid& other) 
+    {
+        const VoxelsGrid v = other.View();
+        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
+
+        mData = std::make_unique<T[]>(storageSize);
+        mView = VoxelsGrid<T>(mData.get(), v.mSizeX, v.mVoxelSize);
+        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
+        std::copy(mData.get(), mData.get() + mView.Size(), other.mData.get());
+    }
+
+    HostVoxelsGrid(HostVoxelsGrid&& other) { swap(other); }
+
+    HostVoxelsGrid& operator=(const HostVoxelsGrid& other) { swap(other); return *this; }
+
+    void swap(HostVoxelsGrid& other)
+    {
+        using std::swap;
+        swap(mData, other.mData);
+        swap(mView, other.mView);
+    }
+
+    friend void swap(HostVoxelsGrid& first, HostVoxelsGrid& second) { first.swap(second); }
 
     inline VoxelsGrid<T, false>& View() { return mView; }
 
@@ -292,26 +275,53 @@ class DeviceVoxelsGrid
     VoxelsGrid<T, true> mView;
 
 public:
-    DeviceVoxelsGrid(const size_t voxelsPerSide, const float sideLength)
+    DeviceVoxelsGrid(const size_t voxelsPerSideX, 
+                     const size_t voxelsPerSideY, 
+                     const size_t voxelsPerSideZ,
+                     const float voxelSize = 1.0f)
     {
-        const size_t storageSize = VoxelsGrid<T>::StorageSize(voxelsPerSide) * sizeof(T);           
+        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
+            voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ) * sizeof(T);
+
         gpuAssert(cudaMalloc((void**) &mData, storageSize));   
+        mView = VoxelsGrid<T, true>(mData, voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ, voxelSize);
         gpuAssert(cudaMemset(mData, 0, storageSize));
-        mView = VoxelsGrid<T, true>(mData, voxelsPerSide, sideLength);
+    }
+
+    DeviceVoxelsGrid(const size_t voxelsPerSide, const float voxelSize = 1.0f)
+    {
+        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(voxelsPerSide) * sizeof(T);
+
+        gpuAssert(cudaMalloc((void**) &mData, storageSize));   
+        mView = VoxelsGrid<T, true>(mData, voxelsPerSide, voxelSize);
+        gpuAssert(cudaMemset(mData, 0, storageSize));
     }
 
     DeviceVoxelsGrid(const HostVoxelsGrid<T>& host) 
     {
-        cpuAssert(host.View().mVoxelsPerSideX == host.View().mVoxelsPerSideY &&
-                  host.View().mVoxelsPerSideY == host.View().VoxelsPerSideZ(), 
-                  "You can't copy from host grid with differente voxels per side");
+        const VoxelsGrid v = host.View();
+        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
+            v.mSizeX, v.mSizeY, v.mSizeZ) * sizeof(T);
 
-        const size_t storageSize = VoxelsGrid<T>::StorageSize(host.View().mVoxelsPerSideX) * sizeof(T);
         gpuAssert(cudaMalloc((void**) &mData, storageSize));
-        mView = VoxelsGrid<T, true>(mData, host.View().mVoxelsPerSideX, host.View().mSideLength);
+        mView = VoxelsGrid<T, true>(mData, v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
+        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
         gpuAssert(cudaMemcpy(mData, host.mData.get(), storageSize, cudaMemcpyHostToDevice));
-        mView.SetOrigin(host.View().OriginX(), host.View().OriginY(), host.View().OriginZ());
     }
+
+    DeviceVoxelsGrid(const DeviceVoxelsGrid& other)
+    {
+        const VoxelsGrid v = other.View();
+        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
+            v.mSizeX, v.mSizeY, v.mSizeZ) * sizeof(T);
+
+        gpuAssert(cudaMalloc((void**) &mData, storageSize));
+        mView = VoxelsGrid<T, true>(mData, v.mSizeX, v.mSizeY, v.mSizeZ, v.mSideLength);
+        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
+        gpuAssert(cudaMemcpy(mData, other.mData, storageSize, cudaMemcpyDeviceToDevice));
+    }
+
+    DeviceVoxelsGrid(DeviceVoxelsGrid&& other) { swap(other); }
 
     ~DeviceVoxelsGrid()
     {
@@ -319,8 +329,16 @@ public:
             gpuAssert(cudaFree(mData));
     }   
 
-    DeviceVoxelsGrid(const DeviceVoxelsGrid&) = delete;
-    DeviceVoxelsGrid& operator=(const DeviceVoxelsGrid&) = delete;
+    DeviceVoxelsGrid& operator=(const DeviceVoxelsGrid& other) { swap(other); return *this; }
+
+    void swap(DeviceVoxelsGrid& other)
+    {
+        using std::swap;
+        swap(mData, other.mData);
+        swap(mView, other.mView);
+    }
+
+    friend void swap(DeviceVoxelsGrid& first, DeviceVoxelsGrid& second) { first.swap(second); }
 
     inline VoxelsGrid<T, true>& View() { return mView; }
 
@@ -353,4 +371,4 @@ using VoxelsGrid64bitDev = VoxelsGrid<uint64_t, true>;
 using DeviceVoxelsGrid32bit = DeviceVoxelsGrid<uint32_t>;
 using DeviceVoxelsGrid64bit = DeviceVoxelsGrid<uint64_t>;
 
-#endif // !VOXELS_GRID
+#endif // !VOXELS_GRID_H
