@@ -80,8 +80,6 @@ public:
         }
     }
 
-protected:
-
     __host__ __device__
     inline uint Index(const uint x, const uint y, const uint z) const 
     {
@@ -124,7 +122,7 @@ public:
 
     HostGrid(HostGrid&& other) { swap(other); }
 
-    HostGrid& operator=(const HostGrid& other) { swap(other); return *this; }
+    HostGrid& operator=(HostGrid other) { swap(other); return *this; }
 
     void swap(HostGrid& other)
     {
@@ -187,7 +185,7 @@ public:
             gpuAssert(cudaFree(mData));
     }
 
-    DeviceGrid& operator=(const DeviceGrid& other) { swap(other); return *this; }
+    DeviceGrid& operator=(DeviceGrid other) { swap(other); return *this; }
 
     void swap(DeviceGrid& other)
     {

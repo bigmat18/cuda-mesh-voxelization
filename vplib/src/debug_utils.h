@@ -1,23 +1,11 @@
 #include <cassert>
 #include <cstdio>
-#include <cuda_runtime_api.h>
 #include <string>
 #include <chrono>
 #include <cuda_runtime.h>
 
-#ifndef DEBUG_UTILS
-#define DEBUG_UTILS
-
-__host__ inline int NextPow2(const int n, const int max) {
-    int pow2 = 1;
-    while (pow2 < n && pow2 < max)
-        pow2 <<= 1;
-    return pow2;
-}
-
-enum class Types {
-    SEQUENTIAL, NAIVE, TILED
-};
+#ifndef DEBUG_UTILS_H
+#define DEBUG_UTILS_H
 
 __host__ __device__ inline const char* getCurrentTimestamp() {
     #ifndef __CUDA_ARCH__
@@ -71,8 +59,8 @@ inline void cpuAssertBase(bool condition, const std::string msg,
     }
 }
 
-#define gpuAssert(ans) gpuAssertBase((ans), __FILE__, __LINE__);
+#define gpuAssert(ans) gpuAssertBase((ans), __FILE__, __LINE__)
 
-#define cpuAssert(ans, msg) cpuAssertBase((ans), msg, __FILE__, __LINE__);
+#define cpuAssert(ans, msg) cpuAssertBase((ans), msg, __FILE__, __LINE__)
 
 #endif

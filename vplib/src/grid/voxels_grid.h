@@ -12,34 +12,28 @@
 #include <cuda_runtime.h>
 
 #include <debug_utils.h>
-#include <grid.h>
+#include <grid/grid.h>
 
-template<typename T, typename... Types>
-__device__ constexpr bool is_one_of = 
-    ( std::is_same_v<T, Types> || ... );
+template <typename T, typename... Ts> __device__
+constexpr bool is_one_of_v = (std::is_same_v<T, Ts> || ...);
 
-template <
-    typename T = uint8_t,
-    typename = std::enable_if_t<is_one_of<T, uint8_t, uint16_t, uint32_t, uint64_t>>>
+template <typename T>
+concept VGType = is_one_of_v<T, uint32_t, uint64_t>;
+
+template <VGType T>
 class HostVoxelsGrid;
 
-template <
-    typename T = uint32_t,
-    typename = std::enable_if_t<is_one_of<T, uint8_t, uint16_t, uint32_t, uint64_t>>>
+template <VGType T>
 class DeviceVoxelsGrid;
 
 
-template <
-    typename T = uint32_t,
-    bool device = false,
-    typename = std::enable_if_t<is_one_of<T, uint8_t, uint16_t, uint32_t, uint64_t>>>
+template <VGType T, bool device = false>
 class VoxelsGrid : protected Grid<T>
 {
     using Grid<T>::mSizeX;
     using Grid<T>::mSizeY;
     using Grid<T>::mSizeZ;
     using Grid<T>::mGrid;
-    using Grid<T>::Index;
 
     float mVoxelSize = 1; 
 
@@ -92,6 +86,7 @@ public:
     using Grid<T>::SizeX;
     using Grid<T>::SizeY;
     using Grid<T>::SizeZ;
+    using Grid<T>::Index;
 
     VoxelsGrid() = default;
 
@@ -120,8 +115,7 @@ public:
     Bit Voxel(const uint x, const uint y, const uint z) 
     {
         assert(x < mSizeX); assert(y < mSizeY); assert(z < mSizeZ);
-
-        size_t index = Index(x, y, z);
+        const uint index = Index(x, y, z);
         return Bit(&mGrid[index / WordSize()], (T(1) << (index % WordSize())));
     }
 
@@ -134,10 +128,18 @@ public:
     }
 
     __host__ __device__
-    T& Word(const uint x, const uint y, const uint z) { return Grid<T>::operator()(x, y, z); }
+    T& Word(const uint x, const uint y, const uint z) 
+    { 
+        assert(x < mSizeX); assert(y < mSizeY); assert(z < mSizeZ);
+        return mGrid[Index(x, y, z) / WordSize()]; 
+    }
 
     __host__ __device__
-    T Word(const uint x, const uint y, const uint z) const { return Grid<T>::operator()(x, y, z); }
+    T Word(const uint x, const uint y, const uint z) const 
+    { 
+        assert(x < mSizeX); assert(y < mSizeY); assert(z < mSizeZ);
+        return mGrid[Index(x, y, z) / WordSize()]; 
+    }
     // ======= Method to acces ad voxels data =======
 
     __host__ __device__
@@ -201,7 +203,7 @@ public:
 };
 
 
-template <typename T, typename>
+template <VGType T>
 class HostVoxelsGrid 
 {
     std::unique_ptr<T[]> mData;
@@ -211,54 +213,21 @@ public:
     HostVoxelsGrid(const size_t voxelsPerSideX, 
                    const size_t voxelsPerSideY, 
                    const size_t voxelsPerSideZ,
-                   const float voxelSize = 1.0f)
-    {
-        mData = std::make_unique<T[]>(VoxelsGrid<T>::CalculateStorageSize(voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ));
-        mView = VoxelsGrid<T, false>(mData.get(), voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ, voxelSize);
-        std::fill(mView.mGrid.begin(), mView.mGrid.end(), 0);
-    }
+                   const float voxelSize = 1.0f);
 
-    HostVoxelsGrid(const size_t voxelsPerSide, const float voxelSize = 1.0)
-    {
-        mData = std::make_unique<T[]>(VoxelsGrid<T>::CalculateStorageSize(voxelsPerSide));
-        mView = VoxelsGrid<T, false>(mData.get(), voxelsPerSide, voxelSize);
-        std::fill(mView.mGrid.begin(), mView.mGrid.end(), 0);
-    }
+    HostVoxelsGrid(const size_t voxelsPerSide, const float voxelSize = 1.0);
 
-    HostVoxelsGrid(const DeviceVoxelsGrid<T>& device) 
-    {
-        const VoxelsGrid v = device.View();
-        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
+    HostVoxelsGrid(const DeviceVoxelsGrid<T>& device);
 
-        mData = std::make_unique<T[]>(storageSize);
-        mView = VoxelsGrid<T>(mData.get(), v.mSizeX, v.mVoxelSize); 
-        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-        gpuAssert(cudaMemcpy(mData.get(), device.mData, storageSize * sizeof(T), cudaMemcpyDeviceToHost));
-    }
+    HostVoxelsGrid(const HostVoxelsGrid<T>& other);
 
-    HostVoxelsGrid(const HostVoxelsGrid& other) 
-    {
-        const VoxelsGrid v = other.View();
-        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
+    HostVoxelsGrid(HostVoxelsGrid<T>&& other) { swap(other); }
 
-        mData = std::make_unique<T[]>(storageSize);
-        mView = VoxelsGrid<T>(mData.get(), v.mSizeX, v.mVoxelSize);
-        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-        std::copy(mData.get(), mData.get() + mView.Size(), other.mData.get());
-    }
+    HostVoxelsGrid& operator=(HostVoxelsGrid<T> other) { swap(other); return *this; }
 
-    HostVoxelsGrid(HostVoxelsGrid&& other) { swap(other); }
+    void swap(HostVoxelsGrid<T>& other);
 
-    HostVoxelsGrid& operator=(const HostVoxelsGrid& other) { swap(other); return *this; }
-
-    void swap(HostVoxelsGrid& other)
-    {
-        using std::swap;
-        swap(mData, other.mData);
-        swap(mView, other.mView);
-    }
-
-    friend void swap(HostVoxelsGrid& first, HostVoxelsGrid& second) { first.swap(second); }
+    friend void swap(HostVoxelsGrid<T>& first, HostVoxelsGrid<T>& second) { first.swap(second); }
 
     inline VoxelsGrid<T, false>& View() { return mView; }
 
@@ -268,7 +237,7 @@ public:
 };
 
 
-template <typename T, typename>
+template <VGType T> 
 class DeviceVoxelsGrid 
 {
     T* mData = nullptr;
@@ -278,50 +247,15 @@ public:
     DeviceVoxelsGrid(const size_t voxelsPerSideX, 
                      const size_t voxelsPerSideY, 
                      const size_t voxelsPerSideZ,
-                     const float voxelSize = 1.0f)
-    {
-        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
-            voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ) * sizeof(T);
+                     const float voxelSize = 1.0f);
 
-        gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-        mView = VoxelsGrid<T, true>(mData, voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ, voxelSize);
-        gpuAssert(cudaMemset(mData, 0, storageSize));
-    }
+    DeviceVoxelsGrid(const size_t voxelsPerSide, const float voxelSize = 1.0f);
 
-    DeviceVoxelsGrid(const size_t voxelsPerSide, const float voxelSize = 1.0f)
-    {
-        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(voxelsPerSide) * sizeof(T);
+    DeviceVoxelsGrid(const HostVoxelsGrid<T>& host);
 
-        gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-        mView = VoxelsGrid<T, true>(mData, voxelsPerSide, voxelSize);
-        gpuAssert(cudaMemset(mData, 0, storageSize));
-    }
+    DeviceVoxelsGrid(const DeviceVoxelsGrid<T>& other);
 
-    DeviceVoxelsGrid(const HostVoxelsGrid<T>& host) 
-    {
-        const VoxelsGrid v = host.View();
-        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
-            v.mSizeX, v.mSizeY, v.mSizeZ) * sizeof(T);
-
-        gpuAssert(cudaMalloc((void**) &mData, storageSize));
-        mView = VoxelsGrid<T, true>(mData, v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
-        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-        gpuAssert(cudaMemcpy(mData, host.mData.get(), storageSize, cudaMemcpyHostToDevice));
-    }
-
-    DeviceVoxelsGrid(const DeviceVoxelsGrid& other)
-    {
-        const VoxelsGrid v = other.View();
-        const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
-            v.mSizeX, v.mSizeY, v.mSizeZ) * sizeof(T);
-
-        gpuAssert(cudaMalloc((void**) &mData, storageSize));
-        mView = VoxelsGrid<T, true>(mData, v.mSizeX, v.mSizeY, v.mSizeZ, v.mSideLength);
-        mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-        gpuAssert(cudaMemcpy(mData, other.mData, storageSize, cudaMemcpyDeviceToDevice));
-    }
-
-    DeviceVoxelsGrid(DeviceVoxelsGrid&& other) { swap(other); }
+    DeviceVoxelsGrid(DeviceVoxelsGrid<T>&& other) { swap(other); }
 
     ~DeviceVoxelsGrid()
     {
@@ -329,16 +263,11 @@ public:
             gpuAssert(cudaFree(mData));
     }   
 
-    DeviceVoxelsGrid& operator=(const DeviceVoxelsGrid& other) { swap(other); return *this; }
+    DeviceVoxelsGrid& operator=(DeviceVoxelsGrid<T> other) { swap(other); return *this; }
 
-    void swap(DeviceVoxelsGrid& other)
-    {
-        using std::swap;
-        swap(mData, other.mData);
-        swap(mView, other.mView);
-    }
+    void swap(DeviceVoxelsGrid<T>& other);
 
-    friend void swap(DeviceVoxelsGrid& first, DeviceVoxelsGrid& second) { first.swap(second); }
+    friend void swap(DeviceVoxelsGrid<T>& first, DeviceVoxelsGrid<T>& second) { first.swap(second); }
 
     inline VoxelsGrid<T, true>& View() { return mView; }
 
@@ -348,25 +277,8 @@ public:
 };
 
 
-using VoxelsGrid8bit  = VoxelsGrid<uint8_t>;
-using VoxelsGrid16bit = VoxelsGrid<uint16_t>;
-using VoxelsGrid32bit = VoxelsGrid<uint32_t>;
-using VoxelsGrid64bit = VoxelsGrid<uint64_t>;
-
-
-using VoxelsGrid8bitHost  = VoxelsGrid<uint8_t, false>;
-using VoxelsGrid16bitHost = VoxelsGrid<uint16_t, false>;
-using VoxelsGrid32bitHost = VoxelsGrid<uint32_t, false>;
-using VoxelsGrid64bitHost = VoxelsGrid<uint64_t, false>;
-
-using HostVoxelsGrid8bit  = HostVoxelsGrid<uint8_t>;
-using HostVoxelsGrid16bit = HostVoxelsGrid<uint16_t>;
 using HostVoxelsGrid32bit = HostVoxelsGrid<uint32_t>;
 using HostVoxelsGrid64bit = HostVoxelsGrid<uint64_t>;
-
-
-using VoxelsGrid32bitDev = VoxelsGrid<uint32_t, true>;
-using VoxelsGrid64bitDev = VoxelsGrid<uint64_t, true>;    
 
 using DeviceVoxelsGrid32bit = DeviceVoxelsGrid<uint32_t>;
 using DeviceVoxelsGrid64bit = DeviceVoxelsGrid<uint64_t>;

@@ -1,7 +1,7 @@
-#include <voxelization/voxelization.cuh>
+#include <vox/vox.h>
 #include <bounding_box.h>
 
-namespace Voxelization {
+namespace VOX {
 
 template <typename T>
 __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
@@ -55,16 +55,24 @@ __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
     }
 }
 
-template __host__ void Sequential<uint8_t>
-(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint8_t, false>&);
+template<Types type, typename T>
+void Compute<Types::SEQUENTIAL, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh) 
+{
+    PROFILING_SCOPE("SequentialVox");
+    Sequential<T>(mesh.FacesCoords, mesh.Coords, grid.View());
+}
 
-template __host__ void Sequential<uint16_t>
-(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint16_t, false>&);
 
 template __host__ void Sequential<uint32_t>
 (const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint32_t, false>&);
 
 template __host__ void Sequential<uint64_t>
 (const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint64_t, false>&);
+
+template void Compute<Types::SEQUENTIAL, uint32_t>
+(HostVoxelsGrid<uint32_t>&, const Mesh&);    
+
+template void Compute<Types::SEQUENTIAL, uint64_t>
+(HostVoxelsGrid<uint64_t>&, const Mesh&); 
 
 }

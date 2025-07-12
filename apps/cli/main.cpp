@@ -1,9 +1,12 @@
-#include "grid.h"
+#include "proc_utils.h"
+#include <cstdint>
 #include <debug_utils.h>
-//#include <csg.cuh>
+#include <csg/csg.h>
+#include <vox/vox.h>
+#include <jfa/jfa.h>
 #include <cxxopts.hpp>
 
-#include <voxels_grid.h>
+#include <grid/voxels_grid.h>
 
 int main(int argc, char **argv) {
     const int device = 0;
@@ -35,19 +38,7 @@ int main(int argc, char **argv) {
     const unsigned int             NUM_VOXELS   = result["num-voxels"].as<unsigned int>();
 
 
-    //HostGrid<int> test(8, 8, 6, 3);
-    //DeviceGrid<int> devTest(test);
-    //HostGrid<int> test2(devTest);
 
-    //test.View().Print();
-    //test2.View().Print();
-
-    HostVoxelsGrid32bit  t(8, 4);
-    DeviceVoxelsGrid32bit devT(t);
-    HostVoxelsGrid32bit t2(devT);
-
-    t.View().Print();
-    t2.View().Print();
     //std::vector<std::unique_ptr<DeviceVoxelsGrid32bit>> grids;
 
     //size_t size = 0;
@@ -140,56 +131,56 @@ int main(int argc, char **argv) {
     //}
     //#endif
     //}
-    //// int size = 32;
-    //// HostVoxelsGrid32bit test(size, 1);
-    //// test.View().Voxel(2, 2, 0) =true;
-    //// test.View().Voxel(3, 2, 0) = true;
-    //// test.View().Voxel(4, 2, 0) = true;
-    //// test.View().Voxel(2, 3, 0) = true;
-    //// test.View().Voxel(3, 3, 0) = true;
-    //// test.View().Voxel(4, 3, 0) = true;
-    //// test.View().Voxel(2, 4, 0) = true;
-    //// test.View().Voxel(3, 4, 0) = true;
-    //// test.View().Voxel(4, 4, 0) = true;
+     int size = 32;
+     HostVoxelsGrid32bit test(size);
+     test.View().Voxel(2, 2, 0) =true;
+     test.View().Voxel(3, 2, 0) = true;
+     test.View().Voxel(4, 2, 0) = true;
+     test.View().Voxel(2, 3, 0) = true;
+     test.View().Voxel(3, 3, 0) = true;
+     test.View().Voxel(4, 3, 0) = true;
+     test.View().Voxel(2, 4, 0) = true;
+     test.View().Voxel(3, 4, 0) = true;
+     test.View().Voxel(4, 4, 0) = true;
 
-    //// test.View().Voxel(2, 2, 1) = true;
-    //// test.View().Voxel(3, 2, 1) = true;
-    //// test.View().Voxel(4, 2, 1) = true;
-    //// test.View().Voxel(2, 3, 1) = true;
-    //// test.View().Voxel(3, 3, 1) = true;
-    //// test.View().Voxel(4, 3, 1) = true;
-    //// test.View().Voxel(2, 4, 1) = true;
-    //// test.View().Voxel(3, 4, 1) = true;
-    //// test.View().Voxel(4, 4, 1) = true;
+     test.View().Voxel(2, 2, 1) = true;
+     test.View().Voxel(3, 2, 1) = true;
+     test.View().Voxel(4, 2, 1) = true;
+     test.View().Voxel(2, 3, 1) = true;
+     test.View().Voxel(3, 3, 1) = true;
+     test.View().Voxel(4, 3, 1) = true;
+     test.View().Voxel(2, 4, 1) = true;
+     test.View().Voxel(3, 4, 1) = true;
+     test.View().Voxel(4, 4, 1) = true;
 
-    //// test.View().Voxel(2, 2, 2) = true;
-    //// test.View().Voxel(3, 2, 2) = true;
-    //// test.View().Voxel(4, 2, 2) = true;
-    //// test.View().Voxel(2, 3, 2) = true;
-    //// test.View().Voxel(3, 3, 2) = true;
-    //// test.View().Voxel(4, 3, 2) = true;
-    //// test.View().Voxel(2, 4, 2) = true;
-    //// test.View().Voxel(3, 4, 2) = true;
-    //// test.View().Voxel(4, 4, 2) = true;
+     test.View().Voxel(2, 2, 2) = true;
+     test.View().Voxel(3, 2, 2) = true;
+     test.View().Voxel(4, 2, 2) = true;
+     test.View().Voxel(2, 3, 2) = true;
+     test.View().Voxel(3, 3, 2) = true;
+     test.View().Voxel(4, 3, 2) = true;
+     test.View().Voxel(2, 4, 2) = true;
+     test.View().Voxel(3, 4, 2) = true;
+     test.View().Voxel(4, 4, 2) = true;
 
-    //// //test.View().Print();
+     //test.View().Print();
 
-    //// DeviceVoxelsGrid32bit devTest(test);
+     DeviceVoxelsGrid32bit devTest(test);
 
-    //// std::vector<JFA::SDF> sdfValues(size * size * size);
-    //// JFA::Compute<JFA::Types::NAIVE, uint32_t>(devTest, sdfValues);
+     std::vector<JFA::SDF> sdfValues(size * size * size);
+     JFA::Compute<Types::NAIVE, uint32_t>(devTest, sdfValues);
 
-    //// HostVoxelsGrid32bit out(devTest);
+     HostVoxelsGrid32bit out(devTest);
 
-    //// for (int z = 0; z < out.View().VoxelsPerSide(); ++z) {
-    ////   for (int y = 0; y < out.View().VoxelsPerSide(); ++y) {
-    ////     for (int x = 0; x < out.View().VoxelsPerSide(); ++x) {
-    ////       printf("%.1f ", sdfValues[(z * size * size) + (y * size) + x].distance);
-    ////     }
-    ////     printf("\n");
-    ////   }
-    ////   printf("\n");
-    //// }
+     for (int z = 0; z < out.View().VoxelsPerSide(); ++z) {
+       for (int y = 0; y < out.View().VoxelsPerSide(); ++y) {
+         for (int x = 0; x < out.View().VoxelsPerSide(); ++x) {
+           printf("%.1f ", sdfValues[(z * size * size) + (y * size) + x].distance);
+         }
+         printf("\n");
+       }
+       printf("\n");
+     }
 
     //if (opType != "null") {
         //printf("============== Start CSG =============\n");

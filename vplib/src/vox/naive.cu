@@ -1,7 +1,8 @@
-#include <voxelization/voxelization.cuh>
+#include "proc_utils.h"
+#include <vox/vox.h>
 #include <bounding_box.h>
 
-namespace Voxelization {
+namespace VOX {
 
 template <typename T>
 __global__ void NaiveKernel(const size_t numTriangles, 
@@ -65,9 +66,39 @@ __global__ void NaiveKernel(const size_t numTriangles,
     }
 }
 
+template <Types type, typename T>
+void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, const Mesh& mesh) 
+{
+    PROFILING_SCOPE("NaiveVox");
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+
+    const size_t numTriangles = mesh.FacesSize() * 2;
+    const size_t blockSize = NextPow2(numTriangles, prop.maxThreadsDim[0] / 2);
+    const size_t gridSize = (numTriangles + blockSize - 1) / blockSize;
+
+    uint32_t* devTrianglesCoords; 
+    gpuAssert(cudaMalloc((void**) &devTrianglesCoords, mesh.FacesCoords.size() * sizeof(uint32_t)));
+    gpuAssert(cudaMemcpy(devTrianglesCoords, &mesh.FacesCoords[0], mesh.FacesCoords.size() * sizeof(uint32_t), cudaMemcpyHostToDevice));
+
+    Position* devCoords;
+    gpuAssert(cudaMalloc((void**) &devCoords, mesh.Coords.size() * sizeof(Position)));
+    gpuAssert(cudaMemcpy(devCoords, &mesh.Coords[0], mesh.Coords.size() * sizeof(Position), cudaMemcpyHostToDevice));
+
+    NaiveKernel<T><<< gridSize, blockSize >>>(numTriangles, devTrianglesCoords, devCoords, grid.View());
+
+    gpuAssert(cudaPeekAtLastError());
+    cudaDeviceSynchronize(); 
+    cudaFree(devTrianglesCoords);
+    cudaFree(devCoords);
+}
+
 
 template __global__ void NaiveKernel<uint32_t>
 (const size_t, const uint32_t*, const Position*, VoxelsGrid<uint32_t, true>);
+
+template void Compute<Types::NAIVE, uint32_t>
+(DeviceVoxelsGrid<uint32_t>&, const Mesh&); 
 
 }
 

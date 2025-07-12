@@ -8,7 +8,7 @@
 #include <vector>
 
 #include <mesh/mesh.h>
-#include <voxels_grid.h>
+#include <grid/voxels_grid.h>
 
 using uint = unsigned int;
 

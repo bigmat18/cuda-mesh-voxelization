@@ -1,4 +1,3 @@
-#include "voxels_grid.h"
 #include <mesh/grid_to_mesh.h>
 
 template <typename T>
@@ -55,12 +54,6 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
 
     return true;
 }
-
-template bool VoxelsGridToMesh<uint8_t>
-    (const VoxelsGrid<uint8_t> &grid, Mesh &mesh);
-
-template bool VoxelsGridToMesh<uint16_t>
-    (const VoxelsGrid<uint16_t> &grid, Mesh &mesh);
 
 template bool VoxelsGridToMesh<uint32_t>
     (const VoxelsGrid<uint32_t> &grid, Mesh &mesh);
