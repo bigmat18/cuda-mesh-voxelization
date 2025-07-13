@@ -210,6 +210,8 @@ class HostVoxelsGrid
     VoxelsGrid<T, false> mView;
 
 public:
+    HostVoxelsGrid() = default;
+
     HostVoxelsGrid(const size_t voxelsPerSideX, 
                    const size_t voxelsPerSideY, 
                    const size_t voxelsPerSideZ,
@@ -244,6 +246,8 @@ class DeviceVoxelsGrid
     VoxelsGrid<T, true> mView;
 
 public:
+    DeviceVoxelsGrid() = default;
+
     DeviceVoxelsGrid(const size_t voxelsPerSideX, 
                      const size_t voxelsPerSideY, 
                      const size_t voxelsPerSideZ,

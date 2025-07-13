@@ -1,9 +1,6 @@
 #ifndef CSG_H
 #define CSG_H
 
-#include <cassert>
-#include <cstddef>
-
 #include <grid/voxels_grid.h>
 #include <proc_utils.h>
 #include <debug_utils.h>
@@ -11,7 +8,7 @@
 namespace CSG {
 
 enum class Op {
-    UNION, INTERSECTION, DIFFERENCE, VOID
+    VOID, UNION, INTERSECTION, DIFFERENCE
 };
 
 template <typename T> 
