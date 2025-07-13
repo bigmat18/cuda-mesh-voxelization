@@ -1,6 +1,7 @@
 #ifndef GRID_H
 #define GRID_H
 
+#include "mesh/mesh.h"
 #include <debug_utils.h>
 
 #include <cassert>
@@ -72,7 +73,7 @@ public:
         for(int z = 0; z < mSizeZ; ++z) {
             for (int y = 0; y < mSizeY; ++y) {
                 for (int x = 0; x < mSizeX; ++x) {
-                    printf("%d ", (*this)(x, y, z));    
+                    PrintValue((*this)(x, y, z));    
                 }
                 printf("\n");
             }
@@ -88,7 +89,20 @@ public:
 
     friend class HostGrid<T>;
     friend class DeviceGrid<T>;
+
+public:
+    __host__ __device__
+    inline void PrintValue(T Value) const { printf("error"); };
 };
+
+template <> __host__ __device__
+inline void Grid<float>::PrintValue(float value) const { printf("%.2f ", value); } 
+
+template <> __host__ __device__
+inline void Grid<int>::PrintValue(int value) const { printf("%d ", value); } 
+
+template <> __host__ __device__
+inline void Grid<Position>::PrintValue(Position value) const { printf("(%.2f, %.2f, %.2f) ", value.X, value.Y, value.Z); } 
 
 template <typename T>
 class HostGrid 
@@ -97,7 +111,11 @@ class HostGrid
     Grid<T> mView;
 
 public:
-    HostGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ, const T& initValue)
+    HostGrid() = default;
+
+    HostGrid(const size_t size, const T initValue) : HostGrid(size, size, size, initValue) {}
+
+    HostGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ, const T initValue)
     {
         mData = std::make_unique<T[]>(sizeX * sizeY * sizeZ);
         mView = Grid(mData.get(), sizeX, sizeY, sizeZ);
@@ -148,12 +166,15 @@ class DeviceGrid
     Grid<T> mView;
 
 public:
-    DeviceGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ, const T& initValue)
+    DeviceGrid() = default;
+
+    DeviceGrid(const size_t size) : DeviceGrid(size, size, size) {}
+
+    DeviceGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ)
     {
         const size_t storageSize = (sizeX * sizeY * sizeZ) * sizeof(T);
 
         gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-        gpuAssert(cudaMemset(mData, initValue, storageSize));
         mView = Grid(mData, sizeX, sizeY, sizeZ);
     }
 

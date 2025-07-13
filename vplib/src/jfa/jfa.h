@@ -1,3 +1,6 @@
+#ifndef JFA_H
+#define JFA_H
+
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -7,37 +10,29 @@
 
 #include <mesh/mesh.h>
 #include <grid/voxels_grid.h>
+#include <grid/grid.h>
 #include <profiling.h>
 #include <proc_utils.h>
 
-#ifndef JFA_H
-#define JFA_H
-
 namespace JFA {
-
-struct SDF {
-    int x = -1;
-    int y = -1;
-    int z = -1;
-    float distance = std::numeric_limits<float>::infinity();
-};
 
 __host__ __device__ inline float CalculateDistance(Position p0, Position p1) 
 { return std::sqrt(std::pow(p1.X - p0.X, 2) + std::pow(p1.Y - p0.Y, 2) + std::pow(p1.Z - p0.Z, 2)); }
 
 
 template <typename T, int TILE_DIM = 4>
-__global__ void InizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFValues);
+__global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> sdf, Grid<Position> positions);
 
 template <typename T>
-__global__ void InizializationNaive(const VoxelsGrid<T, true> grid, SDF* SDFValues);
+__global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> sdf, Grid<Position> positions);
 
 template <typename T>
-__global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid, const SDF* valuesIn, SDF* valuesOut);
-
+__global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
+                                const Grid<float> inSDF, const Grid<Position> inPositions,
+                                Grid<float> outSDF, Grid<Position> outPositions);
 
 template <Types type, typename T>
-void Compute(DeviceVoxelsGrid<T>& grid, std::vector<SDF>& sdfValues);
+void Compute(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf, DeviceGrid<Position>& positions);
 
 };
 

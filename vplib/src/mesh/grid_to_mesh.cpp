@@ -1,3 +1,7 @@
+#include "jfa/jfa.h"
+#include "mesh/mesh.h"
+#include <cmath>
+#include <cstdint>
 #include <mesh/grid_to_mesh.h>
 
 template <typename T>
@@ -54,6 +58,83 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
 
     return true;
 }
+
+
+template <typename T>
+bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh) 
+{
+    mesh.Clear();
+
+    uint max_vertices_num = grid.Size() * 8;
+    uint max_faces_num = grid.Size() * 6;
+
+    mesh.VerticesReserve(max_vertices_num);
+    mesh.FacesReserve(max_faces_num);
+
+    mesh.Normals.emplace_back(0,0,1);
+    mesh.Normals.emplace_back(0,1,0);
+    mesh.Normals.emplace_back(1,0,0);
+    
+    mesh.Normals.emplace_back(0,0,-1);
+    mesh.Normals.emplace_back(0,-1,0);
+    mesh.Normals.emplace_back(-1,0,0);
+
+    const float maxSize = grid.VoxelSize() * grid.VoxelsPerSide();
+    const float interval = std::sqrt(std::pow(maxSize, 2) * 3);
+
+    unsigned int numberVoxelInsert = 0;
+    for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
+        for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
+            for (uint x = 0; x < grid.VoxelsPerSide(); ++x) {
+                if(!grid.Voxel(x, y, z))
+                    continue;
+               
+                for(int dz = 0; dz < 1; ++dz) {
+                    for (int dy = 0; dy < 1; ++dy) {
+                        for (int dx = 0; dx < 1; ++dx) {
+                            mesh.Coords.emplace_back(
+                                grid.OriginX() + (x * grid.VoxelSize()) + (grid.VoxelSize() * dx),
+                                grid.OriginY() + (y * grid.VoxelSize()) + (grid.VoxelSize() * dy),
+                                grid.OriginZ() + (z * grid.VoxelSize()) + (grid.VoxelSize() * dz)
+                            );
+                            auto rgb = SDFToRGB(colors(x, y, z), interval, -interval);
+                            mesh.Colors.emplace_back(std::get<0>(rgb), std::get<1>(rgb), std::get<2>(rgb), 1.0f);
+                        }
+                    }
+                }
+
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 0, 
+                                                                 (numberVoxelInsert * 8) + 2, 
+                                                                 (numberVoxelInsert * 8) + 1});
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 1, 
+                                                                 (numberVoxelInsert * 8) + 2, 
+                                                                 (numberVoxelInsert * 8) + 3});
+
+                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 0);
+
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 4, 
+                                                                 (numberVoxelInsert * 8) + 6, 
+                                                                 (numberVoxelInsert * 8) + 5});
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 5, 
+                                                                 (numberVoxelInsert * 8) + 6, 
+                                                                 (numberVoxelInsert * 8) + 7});
+
+                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 3);
+                numberVoxelInsert++;
+            } 
+        }
+    }
+    mesh.ShrinkToFit();
+
+    return true;
+}
+
+
+template bool VoxelsGridToMeshSDFColor<uint32_t>
+ (const VoxelsGrid<uint32_t>&, const Grid<float>&, Mesh&);
+
+template bool VoxelsGridToMeshSDFColor<uint64_t>
+ (const VoxelsGrid<uint64_t>&, const Grid<float>&, Mesh&);
 
 template bool VoxelsGridToMesh<uint32_t>
     (const VoxelsGrid<uint32_t> &grid, Mesh &mesh);

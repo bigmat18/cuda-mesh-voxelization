@@ -1,11 +1,13 @@
+#include "grid/grid.h"
 #include "grid/voxels_grid.h"
+#include "mesh/mesh.h"
 #include "proc_utils.h"
 #include <jfa/jfa.h>
 
 namespace JFA {
 
 template <typename T, int TILE_DIM>
-__global__ void InizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFValues)
+__global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> sdf, Grid<Position> positions)
 {
     constexpr int OUT_TILE_DIM = TILE_DIM + 2;
     constexpr int SMEM_DIM = OUT_TILE_DIM * OUT_TILE_DIM;
@@ -81,9 +83,11 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFValu
 
         if(gridSMEM.Voxel(tileX, tileY, tileZ)) {
             bool found = false;
-            for(int z = -1; z <= 1 && !found; z++) {
-                for(int y = -1; y <= 1 && !found; y++) {
-                    for(int x = -1; x <= 1 && !found; x++) {
+            Position pos;
+
+            for(int z = -1; z <= 1; z++) {
+                for(int y = -1; y <= 1; y++) {
+                    for(int x = -1; x <= 1; x++) {
                         if(x == 0 && y == 0 && z == 0)
                             continue;
 
@@ -92,11 +96,20 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFValu
                         int nz = tileZ + z;
 
                         if(!gridSMEM.Voxel(nx, ny, nz)) {
-                            SDFValues[voxelIndex] = SDF({voxelX, voxelY, voxelZ, 0});
                             found = true;
+                            pos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
+                                           grid.OriginY() + (voxelY * grid.VoxelSize()),
+                                           grid.OriginZ() + (voxelZ * grid.VoxelSize()));
                         }
                     }
                 }
+            }
+
+            if(found) {
+                sdf(voxelX, voxelY, voxelZ) = 0.0f;
+                positions(voxelX, voxelY, voxelZ) = pos;
+            } else {
+                sdf(voxelX, voxelY, voxelZ) = std::numeric_limits<float>::infinity();
             }
         }
 
@@ -114,16 +127,13 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, SDF* SDFValu
 
 
 template <Types type, typename T>
-void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, std::vector<SDF>& sdfValues)
+void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf, DeviceGrid<Position>& positions)
 {   
     assert(grid.View().VoxelsPerSide() % grid.View().WordSize() == 0);
     PROFILING_SCOPE("TiledJFA");
     
-    SDF* devSDFValues;
     {
         PROFILING_SCOPE("TiledJFA::Inizialization");
-        gpuAssert(cudaMalloc((void**) &devSDFValues, sdfValues.size() * sizeof(SDF)));
-        gpuAssert(cudaMemcpy(devSDFValues, &sdfValues[0], sdfValues.size() * sizeof(SDF), cudaMemcpyHostToDevice));
 
         const size_t TILE_DIM = 1;
         dim3 blockSize(grid.View().WordSize(), TILE_DIM, TILE_DIM);
@@ -133,7 +143,7 @@ void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, std::vector<SDF>& sdfVa
             (grid.View().VoxelsPerSide() + TILE_DIM - 1) / TILE_DIM
         );                                          
 
-        InizializationTiled<T, TILE_DIM><<< gridSize, blockSize >>>(grid.View(), devSDFValues);
+        InizializationTiled<T, TILE_DIM><<< gridSize, blockSize >>>(grid.View(), sdf.View(), positions.View());
 
         gpuAssert(cudaPeekAtLastError());
         cudaDeviceSynchronize();
@@ -141,38 +151,43 @@ void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, std::vector<SDF>& sdfVa
 
     {
         PROFILING_SCOPE("TiledJFA::Processing");
+
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);
         const size_t numVoxels = grid.View().Size();
-        const size_t blockSizeProc = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
-        const size_t gridSizeProc = (numVoxels + blockSizeProc - 1) / blockSizeProc;
-
-        SDF* devSDFValuesApp;
-        gpuAssert(cudaMalloc((void**) &devSDFValuesApp, sdfValues.size() * sizeof(SDF)));
-        gpuAssert(cudaMemcpy(devSDFValuesApp, devSDFValues, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
+        const size_t blockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
+        const size_t gridSize = (numVoxels + blockSize - 1) / blockSize;
+        
+        DeviceGrid<float> sdfApp(sdf);
+        DeviceGrid<Position> positionsApp(positions);
 
         for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
-            ProcessingNaive<T><<< gridSizeProc, blockSizeProc >>>(k, grid.View(), devSDFValues, devSDFValuesApp); 
+            ProcessingNaive<T><<< gridSize, blockSize >>>(
+                k, grid.View(), 
+                sdf.View(), positions.View(), 
+                sdfApp.View(), positionsApp.View()
+            );
+
             gpuAssert(cudaPeekAtLastError()); 
             cudaDeviceSynchronize();
-            gpuAssert(cudaMemcpy(devSDFValues, devSDFValuesApp, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToDevice));
+
+            sdf = sdfApp;
+            positions = positionsApp;
         }
     }
-
-    gpuAssert(cudaMemcpy(sdfValues.data(), devSDFValues, sdfValues.size() * sizeof(SDF), cudaMemcpyDeviceToHost));
 }
 
 
 template void Compute<Types::TILED, uint32_t>
-(DeviceVoxelsGrid<uint32_t>&, std::vector<SDF>&);
+(DeviceVoxelsGrid<uint32_t>&, DeviceGrid<float>&, DeviceGrid<Position>&);
 
 template void Compute<Types::TILED, uint64_t>
-(DeviceVoxelsGrid<uint64_t>&, std::vector<SDF>&);
+(DeviceVoxelsGrid<uint64_t>&, DeviceGrid<float>&, DeviceGrid<Position>&);
 
 template __global__ void InizializationTiled<uint32_t>
-(const VoxelsGrid<uint32_t, true>, SDF*);
+(const VoxelsGrid<uint32_t, true>, Grid<float>, Grid<Position>);
 
 template __global__ void InizializationTiled<uint64_t>
-(const VoxelsGrid<uint64_t, true>, SDF*);
+(const VoxelsGrid<uint64_t, true>, Grid<float>, Grid<Position>);
 
 }

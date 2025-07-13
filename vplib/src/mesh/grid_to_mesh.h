@@ -12,6 +12,22 @@
 
 using uint = unsigned int;
 
+inline float Clamp(float x, float a, float b) { return std::max(a, std::min(x, b)); }
+
+inline std::tuple<float, float, float> SDFToRGB(float d, float dmin, float dmax) {
+    float t = (Clamp(d, dmin, dmax) - dmin) / (dmax - dmin);
+
+    float r, g, b;
+    if (t < 0.5f) {
+        float s = t / 0.5f;
+        r = s; g = s; b = 1.0f;
+    } else {
+        float s = (t - 0.5f) / 0.5f;
+        r = 1.0f; g = 1.0f - s; b = 1.0f - s;
+    }
+    return {r, g, b};
+}
+
 template <typename T, bool X = false,  bool Y = false, bool Z = false, bool front = false>
 void AddFacesVertex(float voxelX, float voxelY, float voxelZ,
                     const VoxelsGrid<T>& grid, Mesh& mesh,
@@ -114,5 +130,9 @@ inline void AddFacesVertexYZ(float voxelX, float voxelY, float voxelZ,
 
 template <typename T>
 bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh); 
+
+
+template <typename T>
+bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh); 
 
 #endif // !GRID_TO_MESH_H
