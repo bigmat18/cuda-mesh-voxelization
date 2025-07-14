@@ -1,3 +1,4 @@
+#include "grid/voxels_grid.h"
 #include "jfa/jfa.h"
 #include "mesh/mesh.h"
 #include <cmath>
@@ -63,6 +64,13 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
 template <typename T>
 bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh) 
 {
+
+    float max = 0; 
+    for (int z = 0; z < colors.SizeZ(); ++z)
+        for (int y = 0; y < colors.SizeY(); ++y)
+            for (int x = 0; x <  colors.SizeX(); ++x)
+                if(colors(x,y,z) > max) max = colors(x,y,z); 
+
     mesh.Clear();
 
     uint max_vertices_num = grid.Size() * 8;
@@ -79,9 +87,6 @@ bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colo
     mesh.Normals.emplace_back(0,-1,0);
     mesh.Normals.emplace_back(-1,0,0);
 
-    const float maxSize = grid.VoxelSize() * grid.VoxelsPerSide();
-    const float interval = std::sqrt(std::pow(maxSize, 2) * 3);
-
     unsigned int numberVoxelInsert = 0;
     for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
         for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
@@ -89,37 +94,78 @@ bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colo
                 if(!grid.Voxel(x, y, z))
                     continue;
                
-                for(int dz = 0; dz < 1; ++dz) {
-                    for (int dy = 0; dy < 1; ++dy) {
-                        for (int dx = 0; dx < 1; ++dx) {
+                for(int dz = 0; dz <= 1; ++dz) {
+                    for (int dy = 0; dy <= 1; ++dy) {
+                        for (int dx = 0; dx <= 1; ++dx) {
                             mesh.Coords.emplace_back(
                                 grid.OriginX() + (x * grid.VoxelSize()) + (grid.VoxelSize() * dx),
                                 grid.OriginY() + (y * grid.VoxelSize()) + (grid.VoxelSize() * dy),
                                 grid.OriginZ() + (z * grid.VoxelSize()) + (grid.VoxelSize() * dz)
                             );
-                            auto rgb = SDFToRGB(colors(x, y, z), interval, -interval);
-                            mesh.Colors.emplace_back(std::get<0>(rgb), std::get<1>(rgb), std::get<2>(rgb), 1.0f);
+                            auto rgb = SDFToRGB(colors(x, y, z), max);
+                            mesh.Colors.emplace_back(std::pow(colors(x,y,z), 0.5), 0.0f, 0.0f, 1.0f);
                         }
                     }
                 }
 
+                // ===== BACK =====
                 mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 0, 
                                                                  (numberVoxelInsert * 8) + 2, 
                                                                  (numberVoxelInsert * 8) + 1});
                 mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 1, 
                                                                  (numberVoxelInsert * 8) + 2, 
                                                                  (numberVoxelInsert * 8) + 3});
-
                 mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 0);
 
+                // ===== FRONT =====
                 mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 4, 
-                                                                 (numberVoxelInsert * 8) + 6, 
-                                                                 (numberVoxelInsert * 8) + 5});
+                                                                 (numberVoxelInsert * 8) + 5, 
+                                                                 (numberVoxelInsert * 8) + 6});
                 mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 5, 
+                                                                 (numberVoxelInsert * 8) + 7, 
+                                                                 (numberVoxelInsert * 8) + 6});
+                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 3);
+
+
+                // ===== TOP =====
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 6, 
+                                                                 (numberVoxelInsert * 8) + 3, 
+                                                                 (numberVoxelInsert * 8) + 2});
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 3, 
                                                                  (numberVoxelInsert * 8) + 6, 
                                                                  (numberVoxelInsert * 8) + 7});
+                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 1);
 
-                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 3);
+
+                // ===== BOTTOM =====
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 0, 
+                                                                 (numberVoxelInsert * 8) + 1, 
+                                                                 (numberVoxelInsert * 8) + 4});
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 1, 
+                                                                 (numberVoxelInsert * 8) + 5, 
+                                                                 (numberVoxelInsert * 8) + 4});
+                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 4);
+
+
+                // ===== RIGHT =====
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 1, 
+                                                                 (numberVoxelInsert * 8) + 3, 
+                                                                 (numberVoxelInsert * 8) + 5});
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 3, 
+                                                                 (numberVoxelInsert * 8) + 7, 
+                                                                 (numberVoxelInsert * 8) + 5});
+                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 2);
+
+
+                // ===== LEFT =====
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 0, 
+                                                                 (numberVoxelInsert * 8) + 4, 
+                                                                 (numberVoxelInsert * 8) + 2});
+                mesh.FacesCoords.insert(mesh.FacesCoords.end(), {(numberVoxelInsert * 8) + 2, 
+                                                                 (numberVoxelInsert * 8) + 4, 
+                                                                 (numberVoxelInsert * 8) + 6});
+                mesh.FacesNormals.insert(mesh.FacesNormals.end(), 6, 5);
+
                 numberVoxelInsert++;
             } 
         }
