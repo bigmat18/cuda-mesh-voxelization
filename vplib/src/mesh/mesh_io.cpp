@@ -75,7 +75,7 @@ bool ImportMesh(const std::string filename, Mesh& mesh)
     }
     
     mesh.ShrinkToFit();
-    //LOG_INFO("Mesh %s sucessfully imported", filename.c_str());
+    LOG_INFO("Mesh %s sucessfully imported", filename.c_str());
     return true;
 }
 
@@ -125,7 +125,7 @@ bool ExportMesh(const std::string filename, const Mesh& mesh)
 
     //LOG_INFO("Faces are loaded.");
 
-    //LOG_INFO("Mesh %s sucessfully exported", filename.c_str());
+    LOG_INFO("Mesh %s sucessfully exported", filename.c_str());
     return true;
 }
 

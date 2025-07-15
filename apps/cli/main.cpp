@@ -1,11 +1,10 @@
-#include "mesh/grid_to_mesh.h"
-#include "proc_utils.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <mesh/mesh.h>
 #include <mesh/mesh_io.h>
+#include <mesh/grid_to_mesh.h>
 #include <debug_utils.h>
 #include <csg/csg.h>
 #include <vox/vox.h>

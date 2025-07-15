@@ -1,8 +1,9 @@
 #ifndef GRID_H
 #define GRID_H
 
-#include "mesh/mesh.h"
 #include <debug_utils.h>
+#include <cuda_ptr.h>
+#include <mesh/mesh.h>
 
 #include <cassert>
 #include <cstddef>
@@ -127,7 +128,7 @@ public:
         const Grid v = device.View();
         mData = std::make_unique<T[]>(v.mSizeX * v.mSizeY * v.mSizeZ);
         mView = Grid<T>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
-        gpuAssert(cudaMemcpy(mData.get(), device.mData, mView.Size() * sizeof(T), cudaMemcpyDeviceToHost));
+        gpuAssert(cudaMemcpy(mData.get(), device.mData.get(), mView.Size() * sizeof(T), cudaMemcpyDeviceToHost));
     }
 
     HostGrid(const HostGrid& other) 
@@ -162,7 +163,7 @@ public:
 template <typename T>
 class DeviceGrid 
 {
-    T* mData = nullptr;
+    CudaPtr<T> mData;
     Grid<T> mView;
 
 public:
@@ -172,58 +173,42 @@ public:
 
     DeviceGrid(const size_t sizeX, const size_t sizeY, const size_t sizeZ)
     {
-        const size_t storageSize = (sizeX * sizeY * sizeZ) * sizeof(T);
+        const size_t storageSize = (sizeX * sizeY * sizeZ);
 
-        gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-        mView = Grid(mData, sizeX, sizeY, sizeZ);
+        mData = CudaPtr<T>(storageSize);
+        mView = Grid(mData.get(), sizeX, sizeY, sizeZ);
     }
 
     DeviceGrid(const HostGrid<T>& host) 
     {
         const Grid v = host.View();
-        const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ) * sizeof(T);
+        const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ);
 
-        gpuAssert(cudaMalloc((void**) &mData, storageSize));
-        gpuAssert(cudaMemcpy(mData, host.mData.get(), storageSize, cudaMemcpyHostToDevice));
-        mView = Grid(mData, v.mSizeX, v.mSizeY, v.mSizeZ);
+        mData = CudaPtr(host.mData, storageSize);
+        mView = Grid(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
     }
 
-    DeviceGrid(const DeviceGrid& other) 
+    DeviceGrid(const DeviceGrid<T>& other) 
     {
         const Grid v = other.View();
-        const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ) * sizeof(T);
-
-        gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-        gpuAssert(cudaMemcpy(mData, other.mData, storageSize, cudaMemcpyDeviceToDevice));
-        mView = Grid(mData, v.mSizeX, v.mSizeY, v.mSizeZ);
+        const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ);
+        
+        mData = CudaPtr(other.mData);
+        mView = Grid(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
     }
+
+    DeviceGrid(DeviceGrid<T>&& other) { swap(other); }
 
     DeviceGrid& operator=(const DeviceGrid<T>& other) {
         if (this == &other) return *this;
-    
-        const Grid<T>& v = other.View();
-        const size_t storageSize = v.mSizeX * v.mSizeY * v.mSizeZ * sizeof(T);
-    
-        if (mView.mSizeX != v.mSizeX ||
-            mView.mSizeY != v.mSizeY ||
-            mView.mSizeZ != v.mSizeZ) 
-        {
-            if (mData) gpuAssert(cudaFree(mData));
-            gpuAssert(cudaMalloc((void**)&mData, storageSize));
-            mView = Grid<T>(mData, v.mSizeX, v.mSizeY, v.mSizeZ);
-        }
-    
-        gpuAssert(cudaMemcpy(mData, other.mData, storageSize, cudaMemcpyDeviceToDevice));
+        const Grid v = other.View();
+
+        mData = other.mData;
+        mView = Grid(mData.get(), v.SizeX(), v.SizeY(), v.SizeZ());
         return *this;
     }
     
     DeviceGrid& operator=(DeviceGrid<T>&& other) { swap(other); return *this; }
-
-    ~DeviceGrid()
-    {
-        if(mData)   
-            gpuAssert(cudaFree(mData));
-    }
 
     void swap(DeviceGrid& other)
     {
