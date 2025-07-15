@@ -71,7 +71,7 @@ public:
 
     inline size_t Size() const { return mSize; }
 
-    void copyFromHost(const T* src, const size_t size)
+    void CopyFromHost(const T* src, const size_t size)
     {
         if(mSize != size) {
             if (mPtr) cudaFree(mPtr);
@@ -81,11 +81,13 @@ public:
         gpuAssert(cudaMemcpy(mPtr, src, mSize * sizeof(T), cudaMemcpyHostToDevice));
     }
 
-    void copyToHost(T* dst, const size_t size) const {
+    void CopyToHost(T* dst, const size_t size) const {
         if (size > mSize) 
             throw std::out_of_range("copyToHost: size too large");
         gpuAssert(cudaMemcpy(dst, mPtr, size * sizeof(T), cudaMemcpyDeviceToHost));
     }
+
+    inline void SetMemoryToZero() { gpuAssert(cudaMemset(mPtr, 0, mSize * sizeof(T))); }
 };
 
 

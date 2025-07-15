@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cuda_runtime.h>
 
+#include <cuda_ptr.h>
 #include <debug_utils.h>
 #include <grid/grid.h>
 
@@ -242,7 +243,7 @@ public:
 template <VGType T> 
 class DeviceVoxelsGrid 
 {
-    T* mData = nullptr;
+    CudaPtr<T> mData;
     VoxelsGrid<T, true> mView;
 
 public:
@@ -261,13 +262,9 @@ public:
 
     DeviceVoxelsGrid(DeviceVoxelsGrid<T>&& other) { swap(other); }
 
-    ~DeviceVoxelsGrid()
-    {
-        if(mData)   
-            gpuAssert(cudaFree(mData));
-    }   
+    DeviceVoxelsGrid& operator=(const DeviceVoxelsGrid<T>& other);
 
-    DeviceVoxelsGrid& operator=(DeviceVoxelsGrid<T> other) { swap(other); return *this; }
+    DeviceVoxelsGrid& operator=(DeviceVoxelsGrid<T>&& other) { swap(other); return *this; }
 
     void swap(DeviceVoxelsGrid<T>& other);
 

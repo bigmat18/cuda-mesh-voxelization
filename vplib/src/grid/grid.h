@@ -125,15 +125,15 @@ public:
 
     HostGrid(const DeviceGrid<T>& device) 
     {
-        const Grid v = device.View();
+        const auto& v = device.View();
         mData = std::make_unique<T[]>(v.mSizeX * v.mSizeY * v.mSizeZ);
         mView = Grid<T>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
-        gpuAssert(cudaMemcpy(mData.get(), device.mData.get(), mView.Size() * sizeof(T), cudaMemcpyDeviceToHost));
+        device.mData.CopyToHost(mData.get(), mView.Size());
     }
 
     HostGrid(const HostGrid& other) 
     {
-        const Grid v = other.View();
+        const auto& v = other.View();
         mData = std::make_unique<T[]>(v.mSizeX * v.mSizeY * v.mSizeZ);
         mView = Grid(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
         std::copy(mData.get(), mData.get() + mView.Size(), other.mData.get()); 
@@ -181,7 +181,7 @@ public:
 
     DeviceGrid(const HostGrid<T>& host) 
     {
-        const Grid v = host.View();
+        const auto& v = host.View();
         const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ);
 
         mData = CudaPtr(host.mData, storageSize);
@@ -190,7 +190,7 @@ public:
 
     DeviceGrid(const DeviceGrid<T>& other) 
     {
-        const Grid v = other.View();
+        const auto& v = other.View();
         const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ);
         
         mData = CudaPtr(other.mData);
@@ -201,7 +201,7 @@ public:
 
     DeviceGrid& operator=(const DeviceGrid<T>& other) {
         if (this == &other) return *this;
-        const Grid v = other.View();
+        const auto& v = other.View();
 
         mData = other.mData;
         mView = Grid(mData.get(), v.SizeX(), v.SizeY(), v.SizeZ());

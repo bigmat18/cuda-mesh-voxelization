@@ -26,19 +26,19 @@ HostVoxelsGrid<T>::HostVoxelsGrid(const size_t voxelsPerSide, const float voxelS
 template <VGType T>
 HostVoxelsGrid<T>::HostVoxelsGrid(const DeviceVoxelsGrid<T>& device) 
 {
-    const VoxelsGrid v = device.View();
+    const auto& v = device.View();
     const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
 
     mData = std::make_unique<T[]>(storageSize);
+    device.mData.CopyToHost(mData.get(), storageSize);
     mView = VoxelsGrid<T>(mData.get(), v.mSizeX, v.mVoxelSize); 
     mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-    gpuAssert(cudaMemcpy(mData.get(), device.mData, storageSize * sizeof(T), cudaMemcpyDeviceToHost));
 }
 
 template <VGType T>
 HostVoxelsGrid<T>::HostVoxelsGrid(const HostVoxelsGrid<T>& other) 
 {
-    const VoxelsGrid v = other.View();
+    const auto& v = other.View();
     const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
 
     mData = std::make_unique<T[]>(storageSize);
@@ -67,48 +67,54 @@ DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const size_t voxelsPerSideX,
                                       const size_t voxelsPerSideZ,
                                       const float voxelSize)
 {
-    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
-        voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ) * sizeof(T);
+    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ);
 
-    gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-    mView = VoxelsGrid<T, true>(mData, voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ, voxelSize);
-    gpuAssert(cudaMemset(mData, 0, storageSize));
+    mData = CudaPtr<T>(storageSize); mData.SetMemoryToZero();
+    mView = VoxelsGrid<T, true>(mData.get(), voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ, voxelSize);
 }
 
 template <VGType T>
 DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const size_t voxelsPerSide, const float voxelSize)
 {
-    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(voxelsPerSide) * sizeof(T);
+    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(voxelsPerSide);
 
-    gpuAssert(cudaMalloc((void**) &mData, storageSize));   
-    mView = VoxelsGrid<T, true>(mData, voxelsPerSide, voxelSize);
-    gpuAssert(cudaMemset(mData, 0, storageSize));
+    mData = CudaPtr<T>(storageSize); mData.SetMemoryToZero();
+    mView = VoxelsGrid<T, true>(mData.get(), voxelsPerSide, voxelSize);
 }
 
 template <VGType T>
 DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const HostVoxelsGrid<T>& host) 
 {
-    const VoxelsGrid v = host.View();
-    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
-        v.mSizeX, v.mSizeY, v.mSizeZ) * sizeof(T);
+    const auto& v = host.View();
+    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
 
-    gpuAssert(cudaMalloc((void**) &mData, storageSize));
-    mView = VoxelsGrid<T, true>(mData, v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
+    mData = CudaPtr<T>(host.mData, storageSize);
+    mView = VoxelsGrid<T, true>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
     mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-    gpuAssert(cudaMemcpy(mData, host.mData.get(), storageSize, cudaMemcpyHostToDevice));
 }
 
 template <VGType T>
 DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const DeviceVoxelsGrid<T>& other)
 {
-    const VoxelsGrid v = other.View();
-    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(
-            v.mSizeX, v.mSizeY, v.mSizeZ) * sizeof(T);
+    const auto& v = other.View();
+    const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
 
-    gpuAssert(cudaMalloc((void**) &mData, storageSize));
-    mView = VoxelsGrid<T, true>(mData, v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
+    mData = CudaPtr<T>(other.mData);
+    mView = VoxelsGrid<T, true>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
     mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-    gpuAssert(cudaMemcpy(mData, other.mData, storageSize, cudaMemcpyDeviceToDevice));
+}
+
+
+template <VGType T>
+DeviceVoxelsGrid<T>& DeviceVoxelsGrid<T>::operator=(const DeviceVoxelsGrid<T>& other) 
+{
+    if(this == &other) return *this;
+    const auto& v = other.View();
+    
+    mData = other.mData;
+    mView = VoxelsGrid<T, true>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
+    mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ()); 
+    return *this;
 }
 
 template <VGType T>
