@@ -21,7 +21,7 @@ public:
         auto end = std::chrono::high_resolution_clock::now();
         auto delta = std::chrono::duration<double, std::milli>(end - mStart).count();
         if(!mMsg.empty())
-            printf("[PROFILING] %s: %f ms\n", mMsg.c_str(), delta);
+            printf("[%s]: %f ms\n", mMsg.c_str(), delta);
         else
             printf("[PROFILING] Delta Time: %f ms\n", delta);
     }

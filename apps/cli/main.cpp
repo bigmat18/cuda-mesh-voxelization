@@ -1,6 +1,8 @@
 #include "mesh/grid_to_mesh.h"
 #include "proc_utils.h"
+#include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <mesh/mesh.h>
 #include <mesh/mesh_io.h>
@@ -26,6 +28,7 @@ int main(int argc, char **argv) {
         ("t,type", "Type of processing (0 = sequential, 1 = naive, 2 = tiled)", cxxopts::value<int>()->default_value("2"))
         ("o,output", "Output filename", cxxopts::value<std::string>()->default_value("out.obj"))
         ("p,operation", "CSG Operations (1 = union, 2 = inter, 3 = diff)", cxxopts::value<int>()->default_value("0"))
+        ("e,export", "Exports the phases", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage");
 
     options.parse_positional({"filenames"});
@@ -43,6 +46,7 @@ int main(int argc, char **argv) {
     const CSG::Op                   OPERATION    = static_cast<CSG::Op>(result["operation"].as<int>());
     const Types                     TYPE         = static_cast<Types>(result["type"].as<int>());
     const unsigned int              NUM_VOXELS   = result["num-voxels"].as<unsigned int>();
+    const bool                      EXPORT       = result["export"].as<bool>();
 
     std::vector<Mesh> meshes(result.count("filenames"));
     std::vector<HostVoxelsGrid32bit> grids(result.count("filenames"));
@@ -87,6 +91,7 @@ int main(int argc, char **argv) {
             VOX::Compute<Types::NAIVE>(devGrid, mesh);
             grid = HostVoxelsGrid32bit(devGrid);
         }
+
         
         else if (TYPE == Types::TILED) {
             DeviceVoxelsGrid32bit devGrid(NUM_VOXELS, voxelSize);
@@ -95,7 +100,7 @@ int main(int argc, char **argv) {
             grid = HostVoxelsGrid32bit(devGrid);
         }
 
-        {
+        if (EXPORT) {
             Mesh outMesh;
             VoxelsGridToMesh(grid.View(), outMesh);
             cpuAssert(ExportMesh("out/" + GetTypesString(TYPE) + "_" + GetFilename(FILENAMES[i]), outMesh), 
@@ -135,7 +140,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    {
+
+    if (EXPORT) {
         Mesh outMesh;
         VoxelsGridToMesh(grids[0].View(), outMesh);
         cpuAssert(ExportMesh("out/voxel_" + OUT_FILENAME, outMesh), "Error in " + OUT_FILENAME + " export (csg)");
@@ -165,7 +171,7 @@ int main(int argc, char **argv) {
         sdf = HostGrid(devSDF);
     }
 
-    {
+    if (EXPORT) {
         Mesh outMesh;
         VoxelsGridToMeshSDFColor(grids[0].View(), sdf.View(), outMesh);
         cpuAssert(ExportMesh("out/sdf_" + OUT_FILENAME, outMesh), "Error in " + OUT_FILENAME + " export (sdf)");

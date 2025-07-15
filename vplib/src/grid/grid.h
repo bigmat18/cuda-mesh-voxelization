@@ -198,15 +198,32 @@ public:
         mView = Grid(mData, v.mSizeX, v.mSizeY, v.mSizeZ);
     }
 
-    DeviceGrid(DeviceGrid&& other) { swap(other); }
+    DeviceGrid& operator=(const DeviceGrid<T>& other) {
+        if (this == &other) return *this;
+    
+        const Grid<T>& v = other.View();
+        const size_t storageSize = v.mSizeX * v.mSizeY * v.mSizeZ * sizeof(T);
+    
+        if (mView.mSizeX != v.mSizeX ||
+            mView.mSizeY != v.mSizeY ||
+            mView.mSizeZ != v.mSizeZ) 
+        {
+            if (mData) gpuAssert(cudaFree(mData));
+            gpuAssert(cudaMalloc((void**)&mData, storageSize));
+            mView = Grid<T>(mData, v.mSizeX, v.mSizeY, v.mSizeZ);
+        }
+    
+        gpuAssert(cudaMemcpy(mData, other.mData, storageSize, cudaMemcpyDeviceToDevice));
+        return *this;
+    }
+    
+    DeviceGrid& operator=(DeviceGrid<T>&& other) { swap(other); return *this; }
 
     ~DeviceGrid()
     {
         if(mData)   
             gpuAssert(cudaFree(mData));
     }
-
-    DeviceGrid& operator=(DeviceGrid other) { swap(other); return *this; }
 
     void swap(DeviceGrid& other)
     {

@@ -64,12 +64,11 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
 template <typename T>
 bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh) 
 {
-
-    float max = 0; 
-    for (int z = 0; z < colors.SizeZ(); ++z)
-        for (int y = 0; y < colors.SizeY(); ++y)
-            for (int x = 0; x <  colors.SizeX(); ++x)
-                if(colors(x,y,z) > max) max = colors(x,y,z); 
+    //float max = 0; 
+    //for (int z = 0; z < colors.SizeZ(); ++z)
+        //for (int y = 0; y < colors.SizeY(); ++y)
+            //for (int x = 0; x <  colors.SizeX(); ++x)
+                //if(colors(x,y,z) > max) max = colors(x,y,z); 
 
     mesh.Clear();
 
@@ -87,6 +86,7 @@ bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colo
     mesh.Normals.emplace_back(0,-1,0);
     mesh.Normals.emplace_back(-1,0,0);
 
+    float max = std::sqrt(std::pow(grid.VoxelsPerSide() * grid.VoxelSize(), 2) * 3);
     unsigned int numberVoxelInsert = 0;
     for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
         for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
@@ -103,7 +103,12 @@ bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colo
                                 grid.OriginZ() + (z * grid.VoxelSize()) + (grid.VoxelSize() * dz)
                             );
                             auto rgb = SDFToRGB(colors(x, y, z), max);
-                            mesh.Colors.emplace_back(std::pow(colors(x,y,z), 0.5), 0.0f, 0.0f, 1.0f);
+
+                            mesh.Colors.emplace_back(std::get<0>(rgb), std::get<1>(rgb), std::get<2>(rgb), 1.0f);
+                            //if (colors(x,y,z) == 0.0f)
+                                //mesh.Colors.emplace_back(1.0f, 0.0f, 0.0f, 1.0f);
+                            //else
+                                //mesh.Colors.emplace_back(0.0f, 1.0f, 0.0f, 1.0f);
                         }
                     }
                 }

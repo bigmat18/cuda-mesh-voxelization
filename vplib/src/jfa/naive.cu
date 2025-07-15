@@ -1,6 +1,7 @@
 #include "grid/voxels_grid.h"
 #include "mesh/mesh.h"
 #include <cmath>
+#include <iostream>
 #include <jfa/jfa.h>
 #include <limits>
 
@@ -68,6 +69,8 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
     const int voxelY = (voxelIndex % (grid.VoxelsPerSide() * grid.VoxelsPerSide())) / grid.VoxelsPerSide();
     const int voxelX = voxelIndex % grid.VoxelsPerSide();
 
+    float bestDistance = inSDF(voxelX, voxelY, voxelZ);
+    Position bestPosition;
     for(int z = -1; z <= 1; z++) {
         for(int y = -1; y <= 1; y++) {
             for(int x = -1; x <= 1; x++) {
@@ -84,8 +87,6 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
                     continue;
 
                 float seed = inSDF(nx, ny, nz);
-                float voxel = inSDF(voxelX, voxelY, voxelZ);
-
                 if(std::abs(seed) < std::numeric_limits<float>::infinity()) {
                     Position seedPos = inPositions(nx, ny, nz);
                     Position voxelPos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
@@ -93,14 +94,16 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
                                                  grid.OriginZ() + (voxelZ * grid.VoxelSize()));
 
                     float distance = CalculateDistance(voxelPos, seedPos);
-                    if(distance < std::abs(voxel)) {
-                        outSDF(voxelX, voxelY, voxelZ) = std::copysign(distance, voxel);
-                        outPositions(voxelX, voxelY, voxelZ) = seedPos;
+                    if(distance < std::abs(bestDistance)) {
+                        bestDistance = std::copysign(distance, bestDistance);
+                        bestPosition = seedPos;
                     }
                 }
             }
         }
     }
+    outSDF(voxelX, voxelY, voxelZ) = bestDistance;
+    outPositions(voxelX, voxelY, voxelZ) = bestPosition;
 }
 
 template <Types type, typename T>
@@ -123,7 +126,8 @@ void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
     
     {
         PROFILING_SCOPE("NaiveJFA::Processing");
-        DeviceGrid<float> sdfApp(sdf);
+
+        DeviceGrid<float> sdfApp(sdf);  
         DeviceGrid<Position> positionsApp(positions);
 
         for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 

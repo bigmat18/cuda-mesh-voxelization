@@ -14,18 +14,10 @@ using uint = unsigned int;
 
 inline std::tuple<float, float, float> SDFToRGB(float v, float max) {
     float t = std::max(0.0f, std::min(v, max)) / max;
-    float r, g, b;
-    if (t < 0.5f) {
-        float s = t / 0.5f;
-        r = 0.0f;
-        g = s;
-        b = 1.0f - s;
-    } else {
-        float s = (t - 0.5f) / 0.5f;
-        r = s;
-        g = 1.0f - s;
-        b = 0.0f;
-    }
+    t = std::cbrt(t); 
+    float r = t;
+    float g = 0.0f;
+    float b = 1.0f - t;
     return {r, g, b};
 }
 

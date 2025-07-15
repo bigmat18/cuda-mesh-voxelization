@@ -3,12 +3,15 @@
 #include "mesh/mesh.h"
 #include "proc_utils.h"
 #include <jfa/jfa.h>
+#include <string>
 
 namespace JFA {
 
 template <typename T, int TILE_DIM>
 __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> sdf, Grid<Position> positions)
 {
+    static_assert(TILE_DIM % 2 != 0, "TILE_DIM must be odd");
+
     constexpr int OUT_TILE_DIM = TILE_DIM + 2;
     constexpr int SMEM_DIM = OUT_TILE_DIM * OUT_TILE_DIM;
 
@@ -55,7 +58,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
         }
     }
 
-    for(int depth = 0; depth < 1; ++depth) {
+    for(int depth = 0; depth < TILE_DIM; ++depth) {
 
         if(blockIndex < SMEM_DIM) {
             int smemZ = (blockIndex % OUT_TILE_DIM);
@@ -64,7 +67,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
             int dz = -(OUT_TILE_DIM / 2) + smemZ;
             int dy = -(OUT_TILE_DIM / 2) + smemY;
 
-            int x = centerTileX - grid.WordSize(); 
+            int x = centerTileX + ((depth + 1) * grid.WordSize()); 
             int y = centerTileY + dy;    
             int z = centerTileZ + dz;
 
@@ -126,6 +129,14 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
 }
 
 
+template <typename T>
+__global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
+                                const Grid<float> inSDF, const Grid<Position> inPositions,
+                                Grid<float> outSDF, Grid<Position> outPositions) 
+{
+
+}
+
 template <Types type, typename T>
 void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf, DeviceGrid<Position>& positions)
 {   
@@ -162,6 +173,7 @@ void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
         DeviceGrid<Position> positionsApp(positions);
 
         for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
+            PROFILING_SCOPE(std::to_string(k));
             ProcessingNaive<T><<< gridSize, blockSize >>>(
                 k, grid.View(), 
                 sdf.View(), positions.View(), 
@@ -189,5 +201,11 @@ template __global__ void InizializationTiled<uint32_t>
 
 template __global__ void InizializationTiled<uint64_t>
 (const VoxelsGrid<uint64_t, true>, Grid<float>, Grid<Position>);
+
+template __global__ void ProcessingTiled<uint32_t>
+(const int, const VoxelsGrid<uint32_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
+
+template __global__ void ProcessingTiled<uint64_t>
+(const int, const VoxelsGrid<uint64_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
 
 }
