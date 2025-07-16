@@ -70,7 +70,7 @@ __global__ void NaiveKernel(const size_t numTriangles,
 template <Types type, typename T>
 void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, const Mesh& mesh) 
 {
-    PROFILING_SCOPE("NaiveVox");
+    PROFILING_SCOPE("NaiveVox(" + mesh.Name + ")");
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 

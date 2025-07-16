@@ -1,4 +1,5 @@
 #include "proc_utils.h"
+#include "profiling.h"
 #include <csg/csg.h>
 
 namespace CSG {
@@ -28,6 +29,7 @@ __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> g
 template <Types type, typename T, typename func>
 void Compute<Types::NAIVE, T, func>(DeviceVoxelsGrid<T>& grid1, DeviceVoxelsGrid<T>& grid2, func Op)
 { 
+    PROFILING_SCOPE("NaiveCSG");
     cpuAssert(grid1.View().VoxelsPerSide() == grid2.View().VoxelsPerSide(), 
               "grid1 and grid2 must have same voxels per side");
     cpuAssert(grid1.View().VoxelSize() == grid2.View().VoxelSize(),

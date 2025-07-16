@@ -173,7 +173,7 @@ void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
         DeviceGrid<Position> positionsApp(positions);
 
         for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
-            PROFILING_SCOPE(std::to_string(k));
+            //PROFILING_SCOPE(std::to_string(k));
             ProcessingNaive<T><<< gridSize, blockSize >>>(
                 k, grid.View(), 
                 sdf.View(), positions.View(), 

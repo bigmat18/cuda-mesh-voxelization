@@ -52,13 +52,13 @@ __global__ void CalculateNumOverlapPerTriangle(const size_t numTriangles,
     
 template <typename T>
 __global__ void WorkQueuePopulation(const size_t numTriangles, 
-                                        const uint32_t* triangleCoords,
-                                        const Position* coords, 
-                                        const uint32_t* offsets, 
-                                        const VoxelsGrid<T, true> grid, 
-                                        const size_t workQueueSize,
-                                        uint32_t* workQueueKeys, 
-                                        uint32_t* workQueueValues);
+                                    const uint32_t* triangleCoords,
+                                    const Position* coords, 
+                                    const uint32_t* offsets, 
+                                    const VoxelsGrid<T, true> grid, 
+                                    const size_t workQueueSize,
+                                    uint32_t* workQueueKeys, 
+                                    uint32_t* workQueueValues);
     
     
 template <typename T, int BATCH_SIZE = 14>

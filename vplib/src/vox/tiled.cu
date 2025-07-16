@@ -409,7 +409,7 @@ __global__ void TiledProcessing(const uint32_t* triangleCoords,
 template<Types type, typename T>
 void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, const Mesh& mesh)
 {
-    PROFILING_SCOPE("TiledVox");
+    PROFILING_SCOPE("TiledVox(" + mesh.Name + ")");
     const size_t numTriangles = mesh.FacesSize() * 2;
 
     

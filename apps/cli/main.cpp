@@ -1,3 +1,4 @@
+#include "proc_utils.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -107,7 +108,7 @@ int main(int argc, char **argv) {
         }
 
 
-        if (i > 0) {
+        if (i > 0 && OPERATION != CSG::Op::VOID) {
 
             if (TYPE == Types::SEQUENTIAL) {
 
@@ -140,10 +141,11 @@ int main(int argc, char **argv) {
     }
 
 
-    if (EXPORT) {
+    if (EXPORT && OPERATION != CSG::Op::VOID)  {
         Mesh outMesh;
         VoxelsGridToMesh(grids[0].View(), outMesh);
-        cpuAssert(ExportMesh("out/voxel_" + OUT_FILENAME, outMesh), "Error in " + OUT_FILENAME + " export (csg)");
+        cpuAssert(ExportMesh("out/csg_vox_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
+                  "Error in " + OUT_FILENAME + " export (csg)");
     }
 
     HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -std::numeric_limits<float>::infinity());
@@ -173,7 +175,8 @@ int main(int argc, char **argv) {
     if (EXPORT) {
         Mesh outMesh;
         VoxelsGridToMeshSDFColor(grids[0].View(), sdf.View(), outMesh);
-        cpuAssert(ExportMesh("out/sdf_" + OUT_FILENAME, outMesh), "Error in " + OUT_FILENAME + " export (sdf)");
+        cpuAssert(ExportMesh("out/sdf_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
+                  "Error in " + OUT_FILENAME + " export (sdf)");
     }
 
     return 0;
