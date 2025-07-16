@@ -184,7 +184,7 @@ public:
         const auto& v = host.View();
         const size_t storageSize = (v.mSizeX * v.mSizeY * v.mSizeZ);
 
-        mData = CudaPtr(host.mData, storageSize);
+        mData = CudaPtr(host.mData.get(), storageSize);
         mView = Grid(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
     }
 

@@ -88,7 +88,7 @@ DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const HostVoxelsGrid<T>& host)
     const auto& v = host.View();
     const size_t storageSize = VoxelsGrid<T>::CalculateStorageSize(v.mSizeX, v.mSizeY, v.mSizeZ);
 
-    mData = CudaPtr<T>(host.mData, storageSize);
+    mData = CudaPtr<T>(host.mData.get(), storageSize);
     mView = VoxelsGrid<T, true>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
     mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
 }

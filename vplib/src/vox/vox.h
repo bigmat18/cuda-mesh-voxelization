@@ -1,6 +1,7 @@
 #ifndef VOX_H
 #define VOX_H
 
+#include "cuda_ptr.h"
 #include <cstddef>
 #include <cstdint>
 #include <driver_types.h>
@@ -72,38 +73,38 @@ __global__ void TiledProcessing(const uint32_t* triangleCoords,
 template <typename T>
 void TileAssignmentCalculateOverlap(const size_t numTriangles, 
                                     const Mesh& mesh,
-                                    uint32_t** devTrianglesCoords, 
-                                    Position** devCoords,
-                                    uint32_t** devOverlapPerTriangle,
+                                    CudaPtr<uint32_t>& devTrianglesCoords, 
+                                    CudaPtr<Position>& devCoords,
+                                    CudaPtr<uint32_t>& devOverlapPerTriangle,
                                     VoxelsGrid<T, true>& grid);
 
 void TileAssignmentExclusiveScan(const size_t numTriangles,
-                                 uint32_t** devOffsets,
-                                 uint32_t** devOverlapPerTriangle);
+                                 CudaPtr<uint32_t>& devOffsets,
+                                 CudaPtr<uint32_t>& devOverlapPerTriangle);
 
 template <typename T>
 void TileAssignmentWorkQueuePopulation(const size_t numTriangles,
                                        const size_t workQueueSize,
-                                       uint32_t** devTrianglesCoords,
-                                       Position** devCoords,
-                                       uint32_t** devOffsets,
+                                       CudaPtr<uint32_t>& devTrianglesCoords,
+                                       CudaPtr<Position>& devCoords,
+                                       CudaPtr<uint32_t>& devOffsets,
                                        VoxelsGrid<T, true>& grid,
-                                       uint32_t** devWorkQueueKeys,
-                                       uint32_t** devWorkQueueValues);
+                                       CudaPtr<uint32_t>& devWorkQueueKeys,
+                                       CudaPtr<uint32_t>& devWorkQueueValues);
 
 void TileAssignmentWorkQueueSorting(const size_t workQueueSize,
-                                    uint32_t** devWorkQueueKeys,
-                                    uint32_t** devWorkQueueValues,
-                                    uint32_t** devWorkQueueKeysSorted,
-                                    uint32_t** devWorkQueueValuesSorted);
+                                    CudaPtr<uint32_t>& devWorkQueueKeys,
+                                    CudaPtr<uint32_t>& devWorkQueueValues,
+                                    CudaPtr<uint32_t>& devWorkQueueKeysSorted,
+                                    CudaPtr<uint32_t>& devWorkQueueValuesSorted);
     
 void TileAssignmentCompactResult(const size_t workQueueSize,
                                  const size_t numTiled,
                                  uint32_t& numActiveTiles,
-                                 uint32_t** devWorkQueueKeysSorted,
-                                 uint32_t** devActiveTilesList,
-                                 uint32_t** devActiveTilesTrianglesCount,
-                                 uint32_t** devActiveTilesOffset);
+                                 CudaPtr<uint32_t>& devWorkQueueKeysSorted,
+                                 CudaPtr<uint32_t>& devActiveTilesList,
+                                 CudaPtr<uint32_t>& devActiveTilesTrianglesCount,
+                                 CudaPtr<uint32_t>& devActiveTilesOffset);
 
 
 template <Types type, typename T>

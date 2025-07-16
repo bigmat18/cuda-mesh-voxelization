@@ -21,10 +21,10 @@ public:
         gpuAssert(cudaMalloc((void**) &mPtr, mSize * sizeof(T)));
     }
 
-    CudaPtr(const std::unique_ptr<T[]>& hostPtr, const size_t size) : mSize(size)
+    CudaPtr(const T* hostPtr, const size_t size) : mSize(size)
     {
         gpuAssert(cudaMalloc((void**) &mPtr, mSize * sizeof(T)));
-        gpuAssert(cudaMemcpy(mPtr, hostPtr.get(), mSize * sizeof(T), cudaMemcpyHostToDevice));
+        gpuAssert(cudaMemcpy(mPtr, hostPtr, mSize * sizeof(T), cudaMemcpyHostToDevice));
     }
 
     CudaPtr(const CudaPtr<T>& other) : mSize(other.mSize)
