@@ -43,6 +43,9 @@ public:
     }
 
     __host__ __device__
+    Grid(T* data, const size_t size) : Grid(data, size, size, size) {}
+
+    __host__ __device__
     T operator()(const uint x, const uint y, const uint z) const
     {
         assert(x < mSizeX); assert(y < mSizeY); assert(z < mSizeZ);

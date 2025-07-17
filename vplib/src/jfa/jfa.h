@@ -32,7 +32,7 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
                                 Grid<float> outSDF, Grid<Position> outPositions);
 
 template <typename T>
-__global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
+__global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsGrid<T, true> grid,
                                 const Grid<float> inSDF, const Grid<Position> inPositions,
                                 Grid<float> outSDF, Grid<Position> outPositions);
 

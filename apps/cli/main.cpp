@@ -1,5 +1,6 @@
 #include "proc_utils.h"
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -148,7 +149,39 @@ int main(int argc, char **argv) {
                   "Error in " + OUT_FILENAME + " export (csg)");
     }
 
-    HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -std::numeric_limits<float>::infinity());
+    //int size = 32;
+    //HostVoxelsGrid32bit test(size);
+    //test.View().Voxel(2, 2, 0) = true;
+    //test.View().Voxel(3, 2, 0) = true;
+    //test.View().Voxel(4, 2, 0) = true;
+    //test.View().Voxel(2, 3, 0) = true;
+    //test.View().Voxel(3, 3, 0) = true;
+    //test.View().Voxel(4, 3, 0) = true;
+    //test.View().Voxel(2, 4, 0) = true;
+    //test.View().Voxel(3, 4, 0) = true;
+    //test.View().Voxel(4, 4, 0) = true;
+
+    //test.View().Voxel(2, 2, 1) = true;
+    //test.View().Voxel(3, 2, 1) = true;
+    //test.View().Voxel(4, 2, 1) = true;
+    //test.View().Voxel(2, 3, 1) = true;
+    //test.View().Voxel(3, 3, 1) = true;
+    //test.View().Voxel(4, 3, 1) = true;
+    //test.View().Voxel(2, 4, 1) = true;
+    //test.View().Voxel(3, 4, 1) = true;
+    //test.View().Voxel(4, 4, 1) = true;
+
+    //test.View().Voxel(2, 2, 2) = true;
+    //test.View().Voxel(3, 2, 2) = true;
+    //test.View().Voxel(4, 2, 2) = true;
+    //test.View().Voxel(2, 3, 2) = true;
+    //test.View().Voxel(3, 3, 2) = true;
+    //test.View().Voxel(4, 3, 2) = true;
+    //test.View().Voxel(2, 4, 2) = true;
+    //test.View().Voxel(3, 4, 2) = true;
+    //test.View().Voxel(4, 4, 2) = true;
+
+    HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -INFINITY);
 
     if (TYPE == Types::SEQUENTIAL) {
 

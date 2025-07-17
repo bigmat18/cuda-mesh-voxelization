@@ -21,9 +21,8 @@ public:
         gpuAssert(cudaMalloc((void**) &mPtr, mSize * sizeof(T)));
     }
 
-    CudaPtr(const T* hostPtr, const size_t size) : mSize(size)
+    CudaPtr(const T* hostPtr, const size_t size) : CudaPtr(size) 
     {
-        gpuAssert(cudaMalloc((void**) &mPtr, mSize * sizeof(T)));
         gpuAssert(cudaMemcpy(mPtr, hostPtr, mSize * sizeof(T), cudaMemcpyHostToDevice));
     }
 

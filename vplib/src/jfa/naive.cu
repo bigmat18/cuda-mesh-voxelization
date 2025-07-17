@@ -23,7 +23,9 @@ __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> 
 
 
     bool found = false;
-    Position pos;
+    Position pos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
+                            grid.OriginY() + (voxelY * grid.VoxelSize()),
+                            grid.OriginZ() + (voxelZ * grid.VoxelSize()));
 
     for(int z = -1; z <= 1; z++) {
         for(int y = -1; y <= 1; y++) {
@@ -39,12 +41,8 @@ __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> 
                                 ny < 0 || ny >= grid.VoxelsPerSide() || 
                                 nz < 0 || nz >= grid.VoxelsPerSide();
 
-                if(isBorder || !grid.Voxel(nx, ny, nz)) {
+                if(isBorder || !grid.Voxel(nx, ny, nz))
                     found = true;
-                    pos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
-                                   grid.OriginY() + (voxelY * grid.VoxelSize()),
-                                   grid.OriginZ() + (voxelZ * grid.VoxelSize()));
-                }
             }
         }
     }
@@ -52,7 +50,7 @@ __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> 
         sdf(voxelX, voxelY, voxelZ) = 0.0f;
         positions(voxelX, voxelY, voxelZ) = pos;
     } else {
-        sdf(voxelX, voxelY, voxelZ) = std::numeric_limits<float>::infinity();
+        sdf(voxelX, voxelY, voxelZ) = INFINITY;
     }
 }
 
@@ -69,6 +67,9 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
     const int voxelY = (voxelIndex % (grid.VoxelsPerSide() * grid.VoxelsPerSide())) / grid.VoxelsPerSide();
     const int voxelX = voxelIndex % grid.VoxelsPerSide();
 
+    Position voxelPos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
+                                 grid.OriginY() + (voxelY * grid.VoxelSize()),
+                                 grid.OriginZ() + (voxelZ * grid.VoxelSize()));
     float bestDistance = inSDF(voxelX, voxelY, voxelZ);
     Position bestPosition;
     for(int z = -1; z <= 1; z++) {
@@ -87,15 +88,12 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
                     continue;
 
                 float seed = inSDF(nx, ny, nz);
-                if(std::abs(seed) < std::numeric_limits<float>::infinity()) {
+                if(fabs(seed) < INFINITY) {
                     Position seedPos = inPositions(nx, ny, nz);
-                    Position voxelPos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
-                                                 grid.OriginY() + (voxelY * grid.VoxelSize()),
-                                                 grid.OriginZ() + (voxelZ * grid.VoxelSize()));
 
                     float distance = CalculateDistance(voxelPos, seedPos);
-                    if(distance < std::abs(bestDistance)) {
-                        bestDistance = std::copysign(distance, bestDistance);
+                    if(distance < fabs(bestDistance)) {
+                        bestDistance = copysignf(distance, bestDistance);
                         bestPosition = seedPos;
                     }
                 }
@@ -131,6 +129,7 @@ void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
         DeviceGrid<Position> positionsApp(positions);
 
         for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
+            PROFILING_SCOPE(std::to_string(k));
             ProcessingNaive<T><<< gridSize, blockSize >>>(
                 k, grid.View(), 
                 sdf.View(), positions.View(), 
