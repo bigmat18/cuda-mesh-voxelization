@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
         ("o,output", "Output filename", cxxopts::value<std::string>()->default_value("out.obj"))
         ("p,operation", "CSG Operations (1 = union, 2 = inter, 3 = diff)", cxxopts::value<int>()->default_value("0"))
         ("e,export", "Exports the phases", cxxopts::value<bool>()->default_value("false"))
+        ("s,sdf", "Active SDF calculation on output file", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage");
 
     options.parse_positional({"filenames"});
@@ -48,6 +49,7 @@ int main(int argc, char **argv) {
     const Types                     TYPE         = static_cast<Types>(result["type"].as<int>());
     const unsigned int              NUM_VOXELS   = result["num-voxels"].as<unsigned int>();
     const bool                      EXPORT       = result["export"].as<bool>();
+    const bool                      SDF          = result["sdf"].as<bool>();
 
     std::vector<Mesh> meshes(result.count("filenames"));
     std::vector<HostVoxelsGrid32bit> grids(result.count("filenames"));
@@ -164,37 +166,38 @@ int main(int argc, char **argv) {
                   "Error in " + OUT_FILENAME + " export (csg)");
     }
 
+    if (SDF) {
+        HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -INFINITY);
 
-    HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -INFINITY);
-    
-    if (TYPE == Types::SEQUENTIAL) {
-        HostGrid<Position> positions(grids[0].View().VoxelsPerSide()); 
-        JFA::Compute<Types::SEQUENTIAL>(grids[0], sdf, positions);
-    }
+        if (TYPE == Types::SEQUENTIAL) {
+            HostGrid<Position> positions(grids[0].View().VoxelsPerSide()); 
+            JFA::Compute<Types::SEQUENTIAL>(grids[0], sdf, positions);
+        }
 
-    else if (TYPE == Types::NAIVE) {
-        DeviceVoxelsGrid32bit devGrid(grids[0]);
-        DeviceGrid<float> devSDF(sdf);
-        DeviceGrid<Position> devPositions(grids[0].View().VoxelsPerSide());
+        else if (TYPE == Types::NAIVE) {
+            DeviceVoxelsGrid32bit devGrid(grids[0]);
+            DeviceGrid<float> devSDF(sdf);
+            DeviceGrid<Position> devPositions(grids[0].View().VoxelsPerSide());
 
-        JFA::Compute<Types::NAIVE>(devGrid, devSDF, devPositions);
-        sdf = HostGrid(devSDF);
-    }
+            JFA::Compute<Types::NAIVE>(devGrid, devSDF, devPositions);
+            sdf = HostGrid(devSDF);
+        }
 
-    else if (TYPE == Types::TILED) {
-        DeviceVoxelsGrid32bit devGrid(grids[0]);
-        DeviceGrid<float> devSDF(sdf);
-        DeviceGrid<Position> devPositions(grids[0].View().VoxelsPerSide());
+        else if (TYPE == Types::TILED) {
+            DeviceVoxelsGrid32bit devGrid(grids[0]);
+            DeviceGrid<float> devSDF(sdf);
+            DeviceGrid<Position> devPositions(grids[0].View().VoxelsPerSide());
 
-        JFA::Compute<Types::TILED>(devGrid, devSDF, devPositions);
-        sdf = HostGrid(devSDF);
-    }
+            JFA::Compute<Types::TILED>(devGrid, devSDF, devPositions);
+            sdf = HostGrid(devSDF);
+        }
 
-    if (EXPORT) {
-        Mesh outMesh;
-        VoxelsGridToMeshSDFColor(grids[0].View(), sdf.View(), outMesh);
-        cpuAssert(ExportMesh("out/sdf_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
-                  "Error in " + OUT_FILENAME + " export (sdf)");
+        if (EXPORT) {
+            Mesh outMesh;
+            VoxelsGridToMeshSDFColor(grids[0].View(), sdf.View(), outMesh);
+            cpuAssert(ExportMesh("out/sdf_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
+                      "Error in " + OUT_FILENAME + " export (sdf)");
+        }
     }
 
     return 0;

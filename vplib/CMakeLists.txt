@@ -27,6 +27,6 @@ target_compile_definitions(vplib PUBLIC
 )
 
 target_compile_options(vplib PUBLIC
-    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    $<$<CONFIG:Release>:-O3 -DNDEBUG --expt-relaxed-constexpr>
     $<$<CONFIG:Debug>:-g -O0 --expt-relaxed-constexpr>
 )
