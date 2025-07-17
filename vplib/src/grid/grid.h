@@ -139,7 +139,7 @@ public:
         const auto& v = other.View();
         mData = std::make_unique<T[]>(v.mSizeX * v.mSizeY * v.mSizeZ);
         mView = Grid(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ);
-        std::copy(mData.get(), mData.get() + mView.Size(), other.mData.get()); 
+        std::copy(v.mGrid.begin(), v.mGrid.end(), mView.mGrid.begin()); 
     }
 
     HostGrid(HostGrid&& other) { swap(other); }

@@ -3,12 +3,16 @@
 
 namespace VOX {
 
-template <typename T>
-__host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
-                         const std::vector<Position>& coords,
-                         VoxelsGrid<T, false>& grid)
+template<Types type, typename T>
+void Compute<Types::SEQUENTIAL, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh) 
 {
+    PROFILING_SCOPE("SequentialVox(" + mesh.Name + ")");
+
+    auto& triangleCoords = mesh.FacesCoords;
+    auto& coords = mesh.Coords;
+    auto& v = grid.View();
     const int numTriangle = triangleCoords.size() / 3;
+
     for(int i = 0; i < numTriangle; ++i) {
         Position V0 = coords[triangleCoords[(i * 3)]];
         Position V1 = coords[triangleCoords[(i * 3) + 1]];
@@ -21,10 +25,10 @@ __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
         std::pair<float, float> BB_X, BB_Y, BB_Z;
         CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
-        int startY = static_cast<int>(std::floor((BB_Y.first - grid.OriginY()) / grid.VoxelSize()));
-        int endY   = static_cast<int>(std::ceil((BB_Y.second - grid.OriginY()) / grid.VoxelSize()));
-        int startZ = static_cast<int>(std::floor((BB_Z.first - grid.OriginZ()) / grid.VoxelSize()));
-        int endZ   = static_cast<int>(std::ceil((BB_Z.second - grid.OriginZ()) / grid.VoxelSize()));
+        int startY = static_cast<int>(std::floor((BB_Y.first - v.OriginY()) / v.VoxelSize()));
+        int endY   = static_cast<int>(std::ceil((BB_Y.second - v.OriginY()) / v.VoxelSize()));
+        int startZ = static_cast<int>(std::floor((BB_Z.first - v.OriginZ()) / v.VoxelSize()));
+        int endZ   = static_cast<int>(std::ceil((BB_Z.second - v.OriginZ()) / v.VoxelSize()));
 
         Position edge0 = V1 - V0;
         Position edge1 = V2 - V0;
@@ -35,8 +39,8 @@ __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
         {
             for(int z = startZ; z < endZ; ++z)
             {
-                float centerY = grid.OriginY() + ((y * grid.VoxelSize()) + (grid.VoxelSize() / 2));
-                float centerZ = grid.OriginZ() + ((z * grid.VoxelSize()) + (grid.VoxelSize() / 2));
+                float centerY = v.OriginY() + ((y * v.VoxelSize()) + (v.VoxelSize() / 2));
+                float centerZ = v.OriginZ() + ((z * v.VoxelSize()) + (v.VoxelSize() / 2));
 
                 float E0 = CalculateEdgeFunctionZY(V0, V1, centerY, centerZ) * sign;
                 float E1 = CalculateEdgeFunctionZY(V1, V2, centerY, centerZ) * sign;
@@ -45,29 +49,15 @@ __host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
                 if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
                     float intersection = (D - (B * centerY) - (C * centerZ)) / A;
 
-                    int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
-                    int endX = grid.VoxelsPerSide();
+                    int startX = static_cast<int>((intersection - v.OriginX()) / v.VoxelSize());
+                    int endX = v.VoxelsPerSide();
                     for(int x = startX; x < endX; ++x)
-                        grid.Voxel(x, y, z) ^= true;
+                        v.Voxel(x, y, z) ^= true;
                 }
             }
         }
     }
 }
-
-template<Types type, typename T>
-void Compute<Types::SEQUENTIAL, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh) 
-{
-    PROFILING_SCOPE("SequentialVox");
-    Sequential<T>(mesh.FacesCoords, mesh.Coords, grid.View());
-}
-
-
-template __host__ void Sequential<uint32_t>
-(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint32_t, false>&);
-
-template __host__ void Sequential<uint64_t>
-(const std::vector<uint32_t>&, const std::vector<Position>&, VoxelsGrid<uint64_t, false>&);
 
 template void Compute<Types::SEQUENTIAL, uint32_t>
 (HostVoxelsGrid<uint32_t>&, const Mesh&);    

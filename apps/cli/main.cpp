@@ -112,7 +112,22 @@ int main(int argc, char **argv) {
         if (i > 0 && OPERATION != CSG::Op::VOID) {
 
             if (TYPE == Types::SEQUENTIAL) {
+                switch (OPERATION) {
+                    case CSG::Op::UNION: 
+                        CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Union<uint32_t>());   
+                        break;
 
+                    case CSG::Op::DIFFERENCE: 
+                        CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Difference<uint32_t>());   
+                        break;
+
+                    case CSG::Op::INTERSECTION: 
+                        CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Intersection<uint32_t>());   
+                        break;
+
+                    case CSG::Op::VOID: 
+                        break;
+                }
             }
 
             else if (TYPE == Types::NAIVE || TYPE == Types::TILED) {
@@ -149,42 +164,12 @@ int main(int argc, char **argv) {
                   "Error in " + OUT_FILENAME + " export (csg)");
     }
 
-    //int size = 32;
-    //HostVoxelsGrid32bit test(size);
-    //test.View().Voxel(2, 2, 0) = true;
-    //test.View().Voxel(3, 2, 0) = true;
-    //test.View().Voxel(4, 2, 0) = true;
-    //test.View().Voxel(2, 3, 0) = true;
-    //test.View().Voxel(3, 3, 0) = true;
-    //test.View().Voxel(4, 3, 0) = true;
-    //test.View().Voxel(2, 4, 0) = true;
-    //test.View().Voxel(3, 4, 0) = true;
-    //test.View().Voxel(4, 4, 0) = true;
-
-    //test.View().Voxel(2, 2, 1) = true;
-    //test.View().Voxel(3, 2, 1) = true;
-    //test.View().Voxel(4, 2, 1) = true;
-    //test.View().Voxel(2, 3, 1) = true;
-    //test.View().Voxel(3, 3, 1) = true;
-    //test.View().Voxel(4, 3, 1) = true;
-    //test.View().Voxel(2, 4, 1) = true;
-    //test.View().Voxel(3, 4, 1) = true;
-    //test.View().Voxel(4, 4, 1) = true;
-
-    //test.View().Voxel(2, 2, 2) = true;
-    //test.View().Voxel(3, 2, 2) = true;
-    //test.View().Voxel(4, 2, 2) = true;
-    //test.View().Voxel(2, 3, 2) = true;
-    //test.View().Voxel(3, 3, 2) = true;
-    //test.View().Voxel(4, 3, 2) = true;
-    //test.View().Voxel(2, 4, 2) = true;
-    //test.View().Voxel(3, 4, 2) = true;
-    //test.View().Voxel(4, 4, 2) = true;
 
     HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -INFINITY);
-
+    
     if (TYPE == Types::SEQUENTIAL) {
-
+        HostGrid<Position> positions(grids[0].View().VoxelsPerSide()); 
+        JFA::Compute<Types::SEQUENTIAL>(grids[0], sdf, positions);
     }
 
     else if (TYPE == Types::NAIVE) {

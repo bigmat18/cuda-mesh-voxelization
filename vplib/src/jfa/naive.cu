@@ -55,9 +55,8 @@ __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> 
 }
 
 template <typename T>
-__global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid, 
-                                const Grid<float> inSDF, const Grid<Position> inPositions,
-                                Grid<float> outSDF, Grid<Position> outPositions) {
+__global__ void ProcessingNaive(const VoxelsGrid<T, true> grid, 
+                                Grid<float> sdf, Grid<Position> positions) {
 
     const int voxelIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
     if(voxelIndex >= grid.Size())
@@ -70,38 +69,49 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
     Position voxelPos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
                                  grid.OriginY() + (voxelY * grid.VoxelSize()),
                                  grid.OriginZ() + (voxelZ * grid.VoxelSize()));
-    float bestDistance = inSDF(voxelX, voxelY, voxelZ);
-    Position bestPosition;
-    for(int z = -1; z <= 1; z++) {
-        for(int y = -1; y <= 1; y++) {
-            for(int x = -1; x <= 1; x++) {
-                if(x == 0 && y == 0 && z == 0)
-                    continue;
 
-                int nx = voxelX + (x * K);
-                int ny = voxelY + (y * K);
-                int nz = voxelZ + (z * K);
+    for(int k = grid.VoxelsPerSide() / 2; k >= 1; k/=2)
+    {
+        bool findNewBest = false;
+        float bestDistance = sdf(voxelX, voxelY, voxelZ);
+        Position bestPosition;
+        for(int z = -1; z <= 1; z++) {
+            for(int y = -1; y <= 1; y++) {
+                for(int x = -1; x <= 1; x++) {
+                    if(x == 0 && y == 0 && z == 0)
+                        continue;
 
-                if(nx < 0 || nx >= grid.VoxelsPerSide() ||
-                   ny < 0 || ny >= grid.VoxelsPerSide() ||
-                   nz < 0 || nz >= grid.VoxelsPerSide())
-                    continue;
+                    int nx = voxelX + (x * k);
+                    int ny = voxelY + (y * k);
+                    int nz = voxelZ + (z * k);
 
-                float seed = inSDF(nx, ny, nz);
-                if(fabs(seed) < INFINITY) {
-                    Position seedPos = inPositions(nx, ny, nz);
+                    if(nx < 0 || nx >= grid.VoxelsPerSide() ||
+                       ny < 0 || ny >= grid.VoxelsPerSide() ||
+                       nz < 0 || nz >= grid.VoxelsPerSide())
+                        continue;
 
-                    float distance = CalculateDistance(voxelPos, seedPos);
-                    if(distance < fabs(bestDistance)) {
-                        bestDistance = copysignf(distance, bestDistance);
-                        bestPosition = seedPos;
+                    float seed = sdf(nx, ny, nz);
+                    if(fabs(seed) < INFINITY) {
+                        Position seedPos = positions(nx, ny, nz);
+
+                        float distance = CalculateDistance(voxelPos, seedPos);
+                        if(distance < fabs(bestDistance)) {
+                            findNewBest = true;
+                            bestDistance = copysignf(distance, bestDistance);
+                            bestPosition = seedPos;
+                        }
                     }
                 }
             }
         }
+
+        __syncthreads();
+        if (findNewBest) {
+            sdf(voxelX, voxelY, voxelZ) = bestDistance;
+            positions(voxelX, voxelY, voxelZ) = bestPosition;
+        }
+        __syncthreads();
     }
-    outSDF(voxelX, voxelY, voxelZ) = bestDistance;
-    outPositions(voxelX, voxelY, voxelZ) = bestPosition;
 }
 
 template <Types type, typename T>
@@ -125,23 +135,11 @@ void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
     {
         PROFILING_SCOPE("NaiveJFA::Processing");
 
-        DeviceGrid<float> sdfApp(sdf);  
-        DeviceGrid<Position> positionsApp(positions);
-
-        for(int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) { 
-            PROFILING_SCOPE(std::to_string(k));
-            ProcessingNaive<T><<< gridSize, blockSize >>>(
-                k, grid.View(), 
-                sdf.View(), positions.View(), 
-                sdfApp.View(), positionsApp.View()
-            );
-
-            gpuAssert(cudaPeekAtLastError()); 
-            cudaDeviceSynchronize();
-
-            sdf = sdfApp;
-            positions = positionsApp;
-        }
+        ProcessingNaive<T><<< gridSize, blockSize >>>(
+            grid.View(), sdf.View(), positions.View()
+        );
+        gpuAssert(cudaPeekAtLastError()); 
+        cudaDeviceSynchronize();
     }
 };
 
@@ -161,9 +159,9 @@ template __global__ void InizializationNaive<uint64_t>
 
 
 template __global__ void ProcessingNaive<uint32_t>
-(const int, const VoxelsGrid<uint32_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
+(const VoxelsGrid<uint32_t, true>, Grid<float>, Grid<Position>);
 
 template __global__ void ProcessingNaive<uint64_t>
-(const int, const VoxelsGrid<uint64_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
+(const VoxelsGrid<uint64_t, true>, Grid<float>, Grid<Position>);
 
 }

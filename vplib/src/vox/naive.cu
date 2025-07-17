@@ -6,7 +6,7 @@
 namespace VOX {
 
 template <typename T>
-__global__ void NaiveKernel(const size_t numTriangles, 
+__global__ void NaiveProcessing(const size_t numTriangles, 
                             const uint32_t* triangleCoords, 
                             const Position* coords, 
                             VoxelsGrid<T, true> grid)
@@ -81,14 +81,14 @@ void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, const Mesh& mesh)
     CudaPtr<uint32_t> devTrianglesCoords = CudaPtr<uint32_t>(&mesh.FacesCoords[0], mesh.FacesCoords.size()); 
     CudaPtr<Position> devCoords = CudaPtr<Position>(&mesh.Coords[0], mesh.Coords.size());
 
-    NaiveKernel<T><<< gridSize, blockSize >>>(numTriangles, devTrianglesCoords.get(), devCoords.get(), grid.View());
+    NaiveProcessing<T><<< gridSize, blockSize >>>(numTriangles, devTrianglesCoords.get(), devCoords.get(), grid.View());
 
     gpuAssert(cudaPeekAtLastError());
     cudaDeviceSynchronize(); 
 }
 
 
-template __global__ void NaiveKernel<uint32_t>
+template __global__ void NaiveProcessing<uint32_t>
 (const size_t, const uint32_t*, const Position*, VoxelsGrid<uint32_t, true>);
 
 template void Compute<Types::NAIVE, uint32_t>

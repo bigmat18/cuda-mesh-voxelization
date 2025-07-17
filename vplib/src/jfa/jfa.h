@@ -27,9 +27,8 @@ template <typename T>
 __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> sdf, Grid<Position> positions);
 
 template <typename T>
-__global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
-                                const Grid<float> inSDF, const Grid<Position> inPositions,
-                                Grid<float> outSDF, Grid<Position> outPositions);
+__global__ void ProcessingNaive(const VoxelsGrid<T, true> grid,
+                                Grid<float> sdf, Grid<Position> positions);
 
 template <typename T>
 __global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsGrid<T, true> grid,
@@ -38,6 +37,9 @@ __global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsG
 
 template <Types type, typename T>
 void Compute(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf, DeviceGrid<Position>& positions);
+
+template <Types type, typename T>
+void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf, HostGrid<Position>& positions);
 
 };
 

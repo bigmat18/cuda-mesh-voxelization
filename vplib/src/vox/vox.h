@@ -32,16 +32,12 @@ CalculateFaceNormal(Position& V0, Position& V1, Position& V2)
 { return Vec3<float>::Cross(V1 - V0, V2 - V1); }
  
     
-template <typename T>
-__host__ void Sequential(const std::vector<uint32_t>& triangleCoords,
-                         const std::vector<Position>& coords,
-                         VoxelsGrid<T, false>& grid);
     
 template <typename T>
-__global__ void NaiveKernel(const size_t numTriangles, 
-                            const uint32_t* triangleCoords, 
-                            const Position* coords, 
-                            VoxelsGrid<T, true> grid);
+__global__ void NaiveProcessing(const size_t numTriangles, 
+                                const uint32_t* triangleCoords, 
+                                const Position* coords, 
+                                VoxelsGrid<T, true> grid);
     
 template <typename T>
 __global__ void CalculateNumOverlapPerTriangle(const size_t numTriangles, 
