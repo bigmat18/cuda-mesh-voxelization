@@ -11,8 +11,6 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_CUDA_ARCHITECTURES 86)
-
 add_subdirectory("${CMAKE_SOURCE_DIR}/libs/cxxopts")
 add_subdirectory(vplib)
 add_subdirectory(apps/cli)
