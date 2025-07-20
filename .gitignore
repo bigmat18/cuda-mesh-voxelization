@@ -3,6 +3,7 @@
 # Build output directories
 /build/
 /bin/
+/tests/
 /obj/
 /out/
 .cache/
