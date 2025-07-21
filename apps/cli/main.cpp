@@ -31,6 +31,7 @@ int main(int argc, char **argv) {
         ("p,operation", "CSG Operations (1 = union, 2 = inter, 3 = diff)", cxxopts::value<int>()->default_value("0"))
         ("e,export", "Exports the phases", cxxopts::value<bool>()->default_value("false"))
         ("s,sdf", "Active SDF calculation on output file", cxxopts::value<bool>()->default_value("false"))
+        ("b,block-size", "Number of thread in block to process tiled voxelization", cxxopts::value<unsigned int>()->default_value("32"))
         ("h,help", "Print usage");
 
     options.parse_positional({"filenames"});
@@ -50,6 +51,8 @@ int main(int argc, char **argv) {
     const unsigned int              NUM_VOXELS   = result["num-voxels"].as<unsigned int>();
     const bool                      EXPORT       = result["export"].as<bool>();
     const bool                      SDF          = result["sdf"].as<bool>();
+    const unsigned int              BLOCK_SIZE   = result["block-size"].as<unsigned int>();
+    cpuAssert(BLOCK_SIZE % 16 == 0, "Thread per voxel must be a multiple of 16");
 
     std::vector<Mesh> meshes(result.count("filenames"));
     std::vector<HostVoxelsGrid32bit> grids(result.count("filenames"));
@@ -99,7 +102,7 @@ int main(int argc, char **argv) {
         else if (TYPE == Types::TILED) {
             DeviceVoxelsGrid32bit devGrid(NUM_VOXELS, voxelSize);
             devGrid.View().SetOrigin(originX, originY, originZ);
-            VOX::Compute<Types::TILED>(devGrid, mesh);
+            VOX::Compute<Types::TILED>(BLOCK_SIZE, devGrid, mesh);
             grid = HostVoxelsGrid32bit(devGrid);
         }
 

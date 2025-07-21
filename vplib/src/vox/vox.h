@@ -57,8 +57,9 @@ __global__ void WorkQueuePopulation(const size_t numTriangles,
                                     uint32_t* workQueueValues);
     
     
-template <typename T, int BATCH_SIZE = 14>
-__global__ void TiledProcessing(const uint32_t* triangleCoords, 
+template <typename T>
+__global__ void TiledProcessing(const int BATCH_SIZE,
+                                const uint32_t* triangleCoords, 
                                 const Position* coords, 
                                 const uint32_t* workQueue, 
                                 const uint32_t* activeTilesList, 
@@ -109,6 +110,8 @@ void Compute(HostVoxelsGrid<T>& grid, const Mesh& mesh);
 template <Types type, typename T>
 void Compute(DeviceVoxelsGrid<T>& grid, const Mesh& mesh); 
 
+template <Types type, typename T>
+void Compute(const size_t blockSize, DeviceVoxelsGrid<T>& grid, const Mesh& mesh); 
 };
 
 #endif // !VOX_H
