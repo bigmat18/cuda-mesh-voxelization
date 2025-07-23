@@ -19,11 +19,7 @@ __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> g
     const int y = (voxelIndex % (grid1.VoxelsPerSide() * grid1.VoxelsPerSide())) / grid1.VoxelsPerSide();
     const int x = voxelIndex % grid1.VoxelsPerSide();
 
-    T word = 0;
-    for(int i = 0; i < grid2.WordSize(); ++i) 
-        word |= grid2.Voxel(x + i, y, z) << i;
-
-    Op(grid1.Word(x, y, z), word);
+    Op(grid1.Word(x, y, z), grid2.Word(x, y, z));
 }
 
 
