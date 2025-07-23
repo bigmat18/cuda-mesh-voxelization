@@ -458,6 +458,7 @@ __global__ void TiledProcessing(const int BATCH_SIZE,
                     }
                     // grid.Word(x, y, z) ^= newWord;
                     atomicXor(&grid.Word(x, y, z), newWord);
+
                     startX = 0;
                 }
             }
@@ -565,25 +566,47 @@ void Compute<Types::TILED, T>(const size_t blockSize, HostVoxelsGrid<T>& grid, c
 template void TileAssignmentCalculateOverlap<uint32_t>
 (const size_t, const Mesh&, CudaPtr<uint32_t>&, CudaPtr<Position>&, 
  CudaPtr<uint32_t>&, VoxelsGrid<uint32_t, true>&);
+template void TileAssignmentCalculateOverlap<uint64_t>
+(const size_t, const Mesh&, CudaPtr<uint32_t>&, CudaPtr<Position>&, 
+ CudaPtr<uint32_t>&, VoxelsGrid<uint64_t, true>&);
+
 
 template void TileAssignmentWorkQueuePopulation<uint32_t>
 (const size_t, const size_t, CudaPtr<uint32_t>&, CudaPtr<Position>&, 
  CudaPtr<uint32_t>&, VoxelsGrid<uint32_t, true>&, CudaPtr<uint32_t>&, CudaPtr<uint32_t>&);
+template void TileAssignmentWorkQueuePopulation<uint64_t>
+(const size_t, const size_t, CudaPtr<uint32_t>&, CudaPtr<Position>&, 
+ CudaPtr<uint32_t>&, VoxelsGrid<uint64_t, true>&, CudaPtr<uint32_t>&, CudaPtr<uint32_t>&);
+
 
 template __global__ void CalculateNumOverlapPerTriangle<uint32_t>
 (const size_t, const uint32_t*, const Position*, 
  const VoxelsGrid<uint32_t, true>, uint32_t*);
+template __global__ void CalculateNumOverlapPerTriangle<uint64_t>
+(const size_t, const uint32_t*, const Position*, 
+ const VoxelsGrid<uint64_t, true>, uint32_t*);
+
 
 template __global__ void WorkQueuePopulation<uint32_t>
 (const size_t, const uint32_t*, const Position*, const uint32_t*, 
  const VoxelsGrid<uint32_t, true>, const size_t, uint32_t*, uint32_t*);
+template __global__ void WorkQueuePopulation<uint64_t>
+(const size_t, const uint32_t*, const Position*, const uint32_t*, 
+ const VoxelsGrid<uint64_t, true>, const size_t, uint32_t*, uint32_t*);
+
 
 template __global__ void TiledProcessing<uint32_t>
 (const int, const uint32_t*, const Position*, const uint32_t*, const uint32_t*, 
  const uint32_t*, const uint32_t*, VoxelsGrid<uint32_t, true>);
+template __global__ void TiledProcessing<uint64_t>
+(const int, const uint32_t*, const Position*, const uint32_t*, const uint32_t*, 
+ const uint32_t*, const uint32_t*, VoxelsGrid<uint64_t, true>);
+
 
 template void Compute<Types::TILED, uint32_t>
 (const size_t, HostVoxelsGrid<uint32_t>&, const Mesh&); 
+template void Compute<Types::TILED, uint64_t>
+(const size_t, HostVoxelsGrid<uint64_t>&, const Mesh&); 
 
 }
 

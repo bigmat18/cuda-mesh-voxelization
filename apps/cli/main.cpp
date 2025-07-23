@@ -16,6 +16,8 @@
 
 #include <cxxopts.hpp>
 
+using gridType = uint32_t;
+
 int main(int argc, char **argv) {
     const int device = 0;
     cudaSetDevice(device);
@@ -59,7 +61,7 @@ int main(int argc, char **argv) {
         
 
     std::vector<Mesh> meshes(result.count("filenames"));
-    std::vector<HostVoxelsGrid32bit> grids(result.count("filenames"));
+    std::vector<HostVoxelsGrid<gridType>> grids(result.count("filenames"));
 
     float originX, originY, originZ, voxelSize;
     {
@@ -85,7 +87,7 @@ int main(int argc, char **argv) {
         voxelSize = sideLength / NUM_VOXELS;
     }
 
-    HostVoxelsGrid32bit bmGrid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);;
+    HostVoxelsGrid<gridType> bmGrid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);;
 
     if(BENCKMARK) {
         //std::srand(std::time(nullptr));
@@ -103,20 +105,20 @@ int main(int argc, char **argv) {
 
 
             if (TYPE == Types::SEQUENTIAL) {
-                grid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+                grid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);
                 grid.View().SetOrigin(originX, originY, originZ);
                 VOX::Compute<Types::SEQUENTIAL>(grid, mesh);
             }
 
             else if (TYPE == Types::NAIVE) {
-                grid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+                grid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);
                 grid.View().SetOrigin(originX, originY, originZ);
                 VOX::Compute<Types::NAIVE>(grid, mesh);
             }
 
 
             else if (TYPE == Types::TILED) {
-                grid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+                grid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);
                 grid.View().SetOrigin(originX, originY, originZ);
                 VOX::Compute<Types::TILED>(BLOCK_SIZE, grid, mesh);
             }
@@ -134,15 +136,15 @@ int main(int argc, char **argv) {
                 if (TYPE == Types::SEQUENTIAL) {
                     switch (OPERATION) {
                         case CSG::Op::UNION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Union<uint32_t>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Union<gridType>());   
                             break;
 
                         case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Difference<uint32_t>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Difference<gridType>());   
                             break;
 
                         case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Intersection<uint32_t>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Intersection<gridType>());   
                             break;
 
                         case CSG::Op::VOID: 
@@ -154,15 +156,15 @@ int main(int argc, char **argv) {
 
                     switch (OPERATION) {
                         case CSG::Op::UNION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Union<uint32_t>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Union<gridType>());   
                             break;
 
                         case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Difference<uint32_t>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Difference<gridType>());   
                             break;
 
                         case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Intersection<uint32_t>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Intersection<gridType>());   
                             break;
 
                         case CSG::Op::VOID: 
@@ -174,15 +176,15 @@ int main(int argc, char **argv) {
                 if (TYPE == Types::SEQUENTIAL) {
                     switch (OPERATION) {
                         case CSG::Op::UNION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Union<uint32_t>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Union<gridType>());   
                             break;
 
                         case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Difference<uint32_t>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Difference<gridType>());   
                             break;
 
                         case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Intersection<uint32_t>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Intersection<gridType>());   
                             break;
 
                         case CSG::Op::VOID: 
@@ -194,15 +196,15 @@ int main(int argc, char **argv) {
 
                     switch (OPERATION) {
                         case CSG::Op::UNION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Union<uint32_t>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Union<gridType>());   
                             break;
 
                         case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Difference<uint32_t>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Difference<gridType>());   
                             break;
 
                         case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Intersection<uint32_t>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Intersection<gridType>());   
                             break;
 
                         case CSG::Op::VOID: 

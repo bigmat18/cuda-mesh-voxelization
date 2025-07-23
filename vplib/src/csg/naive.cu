@@ -26,6 +26,8 @@ __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> g
     Op(grid1.Word(x, y, z), word);
 }
 
+
+
 template <Types type, typename T, typename func>
 void Compute<Types::NAIVE, T, func>(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op)
 { 
@@ -109,6 +111,5 @@ template void Compute<Types::NAIVE, uint32_t, Difference<uint32_t>>
 template void Compute<Types::NAIVE, uint64_t, Difference<uint64_t>>
 (HostVoxelsGrid<uint64_t>&, HostVoxelsGrid<uint64_t>&, Difference<uint64_t>);
 ///////////////////////////// Difference OP ///////////////////////////////
-
 }
 

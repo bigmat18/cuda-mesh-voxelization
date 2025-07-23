@@ -112,8 +112,13 @@ void Compute<Types::NAIVE, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh)
 
 template __global__ void NaiveProcessing<uint32_t>
 (const size_t, const uint32_t*, const Position*, VoxelsGrid<uint32_t, true>);
+template __global__ void NaiveProcessing<uint64_t>
+(const size_t, const uint32_t*, const Position*, VoxelsGrid<uint64_t, true>);
+
 
 template void Compute<Types::NAIVE, uint32_t>
 (HostVoxelsGrid<uint32_t>&, const Mesh&); 
+template void Compute<Types::NAIVE, uint64_t>
+(HostVoxelsGrid<uint64_t>&, const Mesh&); 
 
 }

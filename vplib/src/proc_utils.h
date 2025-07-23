@@ -1,6 +1,7 @@
 #ifndef PROC_UTILS_H
 #define PROC_UTILS_H
 
+#include <cstdint>
 #include <string>
 
 enum class Types {
@@ -31,5 +32,12 @@ __host__ inline std::string GetTypesString(const Types type) {
     }
 }
 
+__device__ inline void atomicXor(uint64_t* address, uint64_t value) 
+{
+    atomicXor(
+        reinterpret_cast<unsigned long long int*>(address),
+        static_cast<unsigned long long int>(value)
+    );
+}
 
 #endif // !PROC_UTILS_H

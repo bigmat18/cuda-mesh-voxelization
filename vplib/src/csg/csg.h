@@ -35,8 +35,6 @@ __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> g
 template <Types type, typename T, typename func>
 void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op);
 
-template <Types type, typename T, typename func>
-void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op);
 }
 
 #endif // !CSG_H

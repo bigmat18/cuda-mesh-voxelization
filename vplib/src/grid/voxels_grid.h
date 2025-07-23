@@ -277,7 +277,6 @@ public:
     friend class HostVoxelsGrid<T>;
 };
 
-
 using HostVoxelsGrid32bit = HostVoxelsGrid<uint32_t>;
 using HostVoxelsGrid64bit = HostVoxelsGrid<uint64_t>;
 
