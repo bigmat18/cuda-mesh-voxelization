@@ -216,10 +216,20 @@ __global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsG
 }
 
 template <Types type, typename T>
-void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf, DeviceGrid<Position>& positions)
+void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
 {   
     assert(grid.View().VoxelsPerSide() % grid.View().WordSize() == 0);
     PROFILING_SCOPE("TiledJFA");
+
+    DeviceVoxelsGrid<T> devGrid;
+    DeviceGrid<float> devSDF;
+    DeviceGrid<Position> devPositions;
+    {
+        PROFILING_SCOPE("TiledJFA::Memory");
+        devGrid = DeviceVoxelsGrid<T>(grid);
+        devSDF = DeviceGrid<float>(sdf);
+        devPositions = DeviceGrid<Position>(grid.View().VoxelsPerSide());
+    }
     
     {
         PROFILING_SCOPE("TiledJFA::Inizialization");
@@ -232,7 +242,7 @@ void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
             (grid.View().VoxelsPerSide() + TILE_DIM - 1) / TILE_DIM
         );                                          
 
-        InizializationTiled<T, TILE_DIM><<< gridSize, blockSize >>>(grid.View(), sdf.View(), positions.View());
+        InizializationTiled<T, TILE_DIM><<< gridSize, blockSize >>>(devGrid.View(), devSDF.View(), devPositions.View());
 
         gpuAssert(cudaPeekAtLastError());
         cudaDeviceSynchronize();
@@ -273,19 +283,24 @@ void Compute<Types::TILED, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
         const size_t gridSize = (numVoxels + blockSize - 1) / blockSize;
 
         ProcessingNaive<T><<< gridSize, blockSize >>>(
-            grid.View(), sdf.View(), positions.View() 
+            devGrid.View(), devSDF.View(), devPositions.View() 
         );
         gpuAssert(cudaPeekAtLastError()); 
         cudaDeviceSynchronize();
+    }
+
+    {
+        PROFILING_SCOPE("TiledJFA::Memory");
+        sdf = HostGrid<float>(devSDF);
     }
 }
 
 
 template void Compute<Types::TILED, uint32_t>
-(DeviceVoxelsGrid<uint32_t>&, DeviceGrid<float>&, DeviceGrid<Position>&);
+(HostVoxelsGrid<uint32_t>&, HostGrid<float>&);
 
 template void Compute<Types::TILED, uint64_t>
-(DeviceVoxelsGrid<uint64_t>&, DeviceGrid<float>&, DeviceGrid<Position>&);
+(HostVoxelsGrid<uint64_t>&, HostGrid<float>&);
 
 template __global__ void InizializationTiled<uint32_t>
 (const VoxelsGrid<uint32_t, true>, Grid<float>, Grid<Position>);

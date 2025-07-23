@@ -31,10 +31,10 @@ class DeviceVoxelsGrid;
 template <VGType T, bool device = false>
 class VoxelsGrid : protected Grid<T>
 {
+    using Grid<T>::mGrid;
     using Grid<T>::mSizeX;
     using Grid<T>::mSizeY;
     using Grid<T>::mSizeZ;
-    using Grid<T>::mGrid;
 
     float mVoxelSize = 1; 
 

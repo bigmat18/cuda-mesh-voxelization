@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <grid/voxels_grid.h>
+#include <utility>
 
 /////////////////////////////////////////////////////////
 //////////////////// HostVoxelsGrid /////////////////////
@@ -44,7 +45,7 @@ HostVoxelsGrid<T>::HostVoxelsGrid(const HostVoxelsGrid<T>& other)
     mData = std::make_unique<T[]>(storageSize);
     mView = VoxelsGrid<T>(mData.get(), v.mSizeX, v.mVoxelSize);
     mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
-    std::copy(mData.get(), mData.get() + mView.Size(), other.mData.get());
+    std::copy(other.mView.mGrid.begin(), other.mView.mGrid.end(),  mView.mGrid.begin());
 }
 
 template <VGType T>
@@ -71,6 +72,7 @@ DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const size_t voxelsPerSideX,
 
     mData = CudaPtr<T>(storageSize); mData.SetMemoryToZero();
     mView = VoxelsGrid<T, true>(mData.get(), voxelsPerSideX, voxelsPerSideY, voxelsPerSideZ, voxelSize);
+    assert(mData.get() == &mView.mGrid[0]);
 }
 
 template <VGType T>
@@ -80,6 +82,7 @@ DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const size_t voxelsPerSide, const float vo
 
     mData = CudaPtr<T>(storageSize); mData.SetMemoryToZero();
     mView = VoxelsGrid<T, true>(mData.get(), voxelsPerSide, voxelSize);
+    assert(mData.get() == &mView.mGrid[0]);
 }
 
 template <VGType T>
@@ -102,6 +105,7 @@ DeviceVoxelsGrid<T>::DeviceVoxelsGrid(const DeviceVoxelsGrid<T>& other)
     mData = CudaPtr<T>(other.mData);
     mView = VoxelsGrid<T, true>(mData.get(), v.mSizeX, v.mSizeY, v.mSizeZ, v.mVoxelSize);
     mView.SetOrigin(v.OriginX(), v.OriginY(), v.OriginZ());
+    assert(mData.get() == &mView.mGrid[0]);
 }
 
 

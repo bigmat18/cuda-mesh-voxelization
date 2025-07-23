@@ -76,7 +76,7 @@ bool ImportMesh(const std::string filename, Mesh& mesh)
    
     mesh.Name = filename;
     mesh.ShrinkToFit();
-    LOG_INFO("Mesh %s sucessfully imported", filename.c_str());
+    //LOG_INFO("Mesh %s sucessfully imported", filename.c_str());
     return true;
 }
 

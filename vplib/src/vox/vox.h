@@ -108,10 +108,10 @@ template <Types type, typename T>
 void Compute(HostVoxelsGrid<T>& grid, const Mesh& mesh); 
 
 template <Types type, typename T>
-void Compute(DeviceVoxelsGrid<T>& grid, const Mesh& mesh); 
+void Compute(HostVoxelsGrid<T>& grid, const Mesh& mesh); 
 
 template <Types type, typename T>
-void Compute(const size_t blockSize, DeviceVoxelsGrid<T>& grid, const Mesh& mesh); 
+void Compute(const size_t blockSize, HostVoxelsGrid<T>& grid, const Mesh& mesh); 
 };
 
 #endif // !VOX_H

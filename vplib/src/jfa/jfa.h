@@ -36,10 +36,10 @@ __global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsG
                                 Grid<float> outSDF, Grid<Position> outPositions);
 
 template <Types type, typename T>
-void Compute(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf, DeviceGrid<Position>& positions);
+void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf);
 
 template <Types type, typename T>
-void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf, HostGrid<Position>& positions);
+void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf);
 
 };
 

@@ -1,18 +1,25 @@
+#include "mesh/mesh.h"
 #include "profiling.h"
 #include <jfa/jfa.h>
     
 namespace JFA {
 
 template <Types type, typename T>
-void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf, HostGrid<Position>& positions)
+void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
 {
     PROFILING_SCOPE("SequentialJFA");
     auto& gridV = grid.View();
 
+    HostGrid<Position> positions;
     {
+        PROFILING_SCOPE("SequentialJFA::Memory");
+        positions = HostGrid<Position>(grid.View().VoxelsPerSide());
+    }
+
+    {
+        PROFILING_SCOPE("SequentialJFA::Initialization");
         auto& sdfV = sdf.View();
         auto& positionsV = positions.View();
-        PROFILING_SCOPE("SequentialJFA::Initialization");
 
         for (int voxelZ = 0; voxelZ < gridV.SizeZ(); ++voxelZ) {
             for (int voxelY = 0; voxelY < gridV.SizeY(); ++voxelY) {
@@ -121,8 +128,8 @@ void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf, HostGrid<Position>& 
 
 
 template void Compute<Types::SEQUENTIAL, uint32_t>
-(HostVoxelsGrid<uint32_t>&, HostGrid<float>&, HostGrid<Position>&);
+(HostVoxelsGrid<uint32_t>&, HostGrid<float>&);
 
 template void Compute<Types::SEQUENTIAL, uint64_t>
-(HostVoxelsGrid<uint64_t>&, HostGrid<float>&, HostGrid<Position>&);
+(HostVoxelsGrid<uint64_t>&, HostGrid<float>&);
 }

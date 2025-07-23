@@ -2,11 +2,14 @@
 #define CUDA_PTR_H
 
 #include <cstddef>
+#include <cstdint>
+#include <cstdio>
 #include <cuda_device_runtime_api.h>
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
 #include <memory>
 #include <debug_utils.h>
+#include <type_traits>
 
 template <typename T>
 class CudaPtr {
@@ -58,7 +61,7 @@ public:
         swap(mSize, other.mSize);
     }
 
-    friend void swap(CudaPtr<T>& first, CudaPtr<T> second) { first.swap(second); }
+    friend void swap(CudaPtr<T>& first, CudaPtr<T>& second) { first.swap(second); }
 
     T* get() { return mPtr; }
 

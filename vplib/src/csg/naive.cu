@@ -27,7 +27,7 @@ __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> g
 }
 
 template <Types type, typename T, typename func>
-void Compute<Types::NAIVE, T, func>(DeviceVoxelsGrid<T>& grid1, DeviceVoxelsGrid<T>& grid2, func Op)
+void Compute<Types::NAIVE, T, func>(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op)
 { 
     PROFILING_SCOPE("NaiveCSG");
     cpuAssert(grid1.View().VoxelsPerSide() == grid2.View().VoxelsPerSide(), 
@@ -35,17 +35,35 @@ void Compute<Types::NAIVE, T, func>(DeviceVoxelsGrid<T>& grid1, DeviceVoxelsGrid
     cpuAssert(grid1.View().VoxelSize() == grid2.View().VoxelSize(),
               "grid1 and grid2 must have same side length");
 
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
+    DeviceVoxelsGrid<T> devGridFirst;
+    DeviceVoxelsGrid<T> devGridSecond;
+    {
 
-    const size_t numWord = (grid1.View().Size() + grid1.View().WordSize() - 1) / grid1.View().WordSize();
-    const size_t blockSize = NextPow2(numWord, prop.maxThreadsDim[0] / 2);
-    const size_t gridSize = (numWord + blockSize - 1) / blockSize;
+        PROFILING_SCOPE("NaiveCSG::Memory");
+        devGridFirst = DeviceVoxelsGrid<T>(grid1);
+        devGridSecond = DeviceVoxelsGrid<T>(grid2);
+    }
 
-    ProcessingNaive<T><<< gridSize, blockSize >>>(grid1.View(), grid2.View(), Op);
 
-    gpuAssert(cudaPeekAtLastError());
-    cudaDeviceSynchronize(); 
+    {   
+        PROFILING_SCOPE("NaiveCSG::Processing");
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, 0);
+
+        const size_t numWord = (grid1.View().Size() + grid1.View().WordSize() - 1) / grid1.View().WordSize();
+        const size_t blockSize = NextPow2(numWord, prop.maxThreadsDim[0] / 2);
+        const size_t gridSize = (numWord + blockSize - 1) / blockSize;
+
+        ProcessingNaive<T><<< gridSize, blockSize >>>(devGridFirst.View(), devGridSecond.View(), Op);
+
+        gpuAssert(cudaPeekAtLastError());
+        cudaDeviceSynchronize(); 
+    }
+
+    {
+        PROFILING_SCOPE("NaiveCSG::Memory");
+        grid1 = HostVoxelsGrid<T>(devGridFirst);
+    }
 }
 
 ////////////////////////////// Union OP ///////////////////////////////
@@ -56,10 +74,10 @@ template __global__ void ProcessingNaive<uint64_t, Union<uint64_t>>
 (VoxelsGrid<uint64_t, true>, VoxelsGrid<uint64_t, true>, Union<uint64_t>);
 
 template void Compute<Types::NAIVE, uint32_t, Union<uint32_t>>
-(DeviceVoxelsGrid<uint32_t>&, DeviceVoxelsGrid<uint32_t>&, Union<uint32_t>);
+(HostVoxelsGrid<uint32_t>&, HostVoxelsGrid<uint32_t>&, Union<uint32_t>);
 
 template void Compute<Types::NAIVE, uint64_t, Union<uint64_t>>
-(DeviceVoxelsGrid<uint64_t>&, DeviceVoxelsGrid<uint64_t>&, Union<uint64_t>);
+(HostVoxelsGrid<uint64_t>&, HostVoxelsGrid<uint64_t>&, Union<uint64_t>);
 ///////////////////////////// Union OP ///////////////////////////////
 
 
@@ -71,10 +89,10 @@ template __global__ void ProcessingNaive<uint64_t, Intersection<uint64_t>>
 (VoxelsGrid<uint64_t, true>, VoxelsGrid<uint64_t, true>, Intersection<uint64_t>);
 
 template void Compute<Types::NAIVE, uint32_t, Intersection<uint32_t>>
-(DeviceVoxelsGrid<uint32_t>&, DeviceVoxelsGrid<uint32_t>&, Intersection<uint32_t>);
+(HostVoxelsGrid<uint32_t>&, HostVoxelsGrid<uint32_t>&, Intersection<uint32_t>);
 
 template void Compute<Types::NAIVE, uint64_t, Intersection<uint64_t>>
-(DeviceVoxelsGrid<uint64_t>&, DeviceVoxelsGrid<uint64_t>&, Intersection<uint64_t>);
+(HostVoxelsGrid<uint64_t>&, HostVoxelsGrid<uint64_t>&, Intersection<uint64_t>);
 ///////////////////////////// Intersection OP ///////////////////////////////
 
 
@@ -86,10 +104,10 @@ template __global__ void ProcessingNaive<uint64_t, Difference<uint64_t>>
 (VoxelsGrid<uint64_t, true>, VoxelsGrid<uint64_t, true>, Difference<uint64_t>);
 
 template void Compute<Types::NAIVE, uint32_t, Difference<uint32_t>>
-(DeviceVoxelsGrid<uint32_t>&, DeviceVoxelsGrid<uint32_t>&, Difference<uint32_t>);
+(HostVoxelsGrid<uint32_t>&, HostVoxelsGrid<uint32_t>&, Difference<uint32_t>);
 
 template void Compute<Types::NAIVE, uint64_t, Difference<uint64_t>>
-(DeviceVoxelsGrid<uint64_t>&, DeviceVoxelsGrid<uint64_t>&, Difference<uint64_t>);
+(HostVoxelsGrid<uint64_t>&, HostVoxelsGrid<uint64_t>&, Difference<uint64_t>);
 ///////////////////////////// Difference OP ///////////////////////////////
 
 }

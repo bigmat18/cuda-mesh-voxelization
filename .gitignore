@@ -2,10 +2,12 @@
 
 # Build output directories
 /build/
+/benckmarks/
 /bin/
 /tests/
 /obj/
 /out/
+/plots/
 .cache/
 
 # Compiled binaries and libraries

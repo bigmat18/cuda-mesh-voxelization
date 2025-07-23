@@ -1,3 +1,4 @@
+#include "grid/grid.h"
 #include "grid/voxels_grid.h"
 #include "mesh/mesh.h"
 #include <cmath>
@@ -115,7 +116,7 @@ __global__ void ProcessingNaive(const VoxelsGrid<T, true> grid,
 }
 
 template <Types type, typename T>
-void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf, DeviceGrid<Position>& positions)
+void Compute<Types::NAIVE, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
 { 
     PROFILING_SCOPE("NaiveJFA");
 
@@ -125,9 +126,21 @@ void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
     const size_t blockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
     const size_t gridSize = (numVoxels + blockSize - 1) / blockSize;
 
+    DeviceVoxelsGrid<T> devGrid;
+    DeviceGrid<float> devSDF;
+    DeviceGrid<Position> devPositions;
+    {
+        PROFILING_SCOPE("NaiveJFA::Memory");
+        devGrid = DeviceVoxelsGrid<T>(grid);
+        devSDF = DeviceGrid<float>(sdf);
+        devPositions = DeviceGrid<Position>(grid.View().VoxelsPerSide());
+    }
+
     {
         PROFILING_SCOPE("NaiveJFA::Inizialization");
-        InizializationNaive<T><<< gridSize, blockSize >>>(grid.View(), sdf.View(), positions.View());
+        InizializationNaive<T><<< gridSize, blockSize >>>(
+            devGrid.View(), devSDF.View(), devPositions.View()
+        );
         gpuAssert(cudaPeekAtLastError());
         cudaDeviceSynchronize();
     }
@@ -136,19 +149,24 @@ void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, DeviceGrid<float>& sdf,
         PROFILING_SCOPE("NaiveJFA::Processing");
 
         ProcessingNaive<T><<< gridSize, blockSize >>>(
-            grid.View(), sdf.View(), positions.View()
+            devGrid.View(), devSDF.View(), devPositions.View()
         );
         gpuAssert(cudaPeekAtLastError()); 
         cudaDeviceSynchronize();
+    }
+
+    {
+        PROFILING_SCOPE("NaiveJFA::Memory");
+        sdf = HostGrid<float>(devSDF);
     }
 };
 
 
 template void Compute<Types::NAIVE, uint32_t>
-(DeviceVoxelsGrid<uint32_t>&, DeviceGrid<float>&, DeviceGrid<Position>&);
+(HostVoxelsGrid<uint32_t>&, HostGrid<float>&);
 
 template void Compute<Types::NAIVE, uint64_t>
-(DeviceVoxelsGrid<uint64_t>&, DeviceGrid<float>&, DeviceGrid<Position>&);
+(HostVoxelsGrid<uint64_t>&, HostGrid<float>&);
 
 
 template __global__ void InizializationNaive<uint32_t>

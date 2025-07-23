@@ -33,7 +33,7 @@ template <typename T, typename func>
 __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> grid2, func Op);
 
 template <Types type, typename T, typename func>
-void Compute(DeviceVoxelsGrid<T>& grid1, DeviceVoxelsGrid<T>& grid2, func Op);
+void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op);
 
 template <Types type, typename T, typename func>
 void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op);

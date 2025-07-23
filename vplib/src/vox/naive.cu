@@ -1,3 +1,7 @@
+#include "grid/voxels_grid.h"
+#include "mesh/mesh.h"
+#include "profiling.h"
+#include <cstdint>
 #include <vox/vox.h>
 #include <bounding_box.h>
 #include <proc_utils.h>
@@ -68,23 +72,41 @@ __global__ void NaiveProcessing(const size_t numTriangles,
 }
 
 template <Types type, typename T>
-void Compute<Types::NAIVE, T>(DeviceVoxelsGrid<T>& grid, const Mesh& mesh) 
+void Compute<Types::NAIVE, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh) 
 {
     PROFILING_SCOPE("NaiveVox(" + mesh.Name + ")");
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
+    
+    DeviceVoxelsGrid<T> devGrid;
+    CudaPtr<uint32_t> devTrianglesCoords;
+    CudaPtr<Position> devCoords;
+    {
+        PROFILING_SCOPE("NaiveVox::Memory");
+        devGrid = DeviceVoxelsGrid<T>(grid.View().VoxelsPerSide(), grid.View().VoxelSize());
+        devGrid.View().SetOrigin(grid.View().OriginX(), grid.View().OriginY(), grid.View().OriginZ());
 
-    const size_t numTriangles = mesh.FacesSize() * 2;
-    const size_t blockSize = NextPow2(numTriangles, prop.maxThreadsDim[0] / 2);
-    const size_t gridSize = (numTriangles + blockSize - 1) / blockSize;
+        devTrianglesCoords = CudaPtr<uint32_t>(&mesh.FacesCoords[0], mesh.FacesCoords.size()); 
+        devCoords = CudaPtr<Position>(&mesh.Coords[0], mesh.Coords.size());
+    }
 
-    CudaPtr<uint32_t> devTrianglesCoords = CudaPtr<uint32_t>(&mesh.FacesCoords[0], mesh.FacesCoords.size()); 
-    CudaPtr<Position> devCoords = CudaPtr<Position>(&mesh.Coords[0], mesh.Coords.size());
+    {
+        PROFILING_SCOPE("NaiveVox::Processing");
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, 0);
 
-    NaiveProcessing<T><<< gridSize, blockSize >>>(numTriangles, devTrianglesCoords.get(), devCoords.get(), grid.View());
+        const size_t numTriangles = mesh.FacesSize() * 2;
+        const size_t blockSize = NextPow2(numTriangles, prop.maxThreadsDim[0] / 2);
+        const size_t gridSize = (numTriangles + blockSize - 1) / blockSize;
 
-    gpuAssert(cudaPeekAtLastError());
-    cudaDeviceSynchronize(); 
+        NaiveProcessing<T><<< gridSize, blockSize >>>(numTriangles, devTrianglesCoords.get(), devCoords.get(), devGrid.View());
+
+        gpuAssert(cudaPeekAtLastError());
+        cudaDeviceSynchronize(); 
+    }
+
+    {
+        PROFILING_SCOPE("NaiveVox::Memory");
+        grid = HostVoxelsGrid<T>(devGrid);
+    }
 }
 
 
@@ -92,7 +114,6 @@ template __global__ void NaiveProcessing<uint32_t>
 (const size_t, const uint32_t*, const Position*, VoxelsGrid<uint32_t, true>);
 
 template void Compute<Types::NAIVE, uint32_t>
-(DeviceVoxelsGrid<uint32_t>&, const Mesh&); 
+(HostVoxelsGrid<uint32_t>&, const Mesh&); 
 
 }
-

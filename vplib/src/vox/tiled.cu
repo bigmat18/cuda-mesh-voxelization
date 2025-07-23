@@ -1,6 +1,8 @@
 #include "cuda_ptr.h"
+#include "grid/voxels_grid.h"
 #include "mesh/mesh.h"
 #include "proc_utils.h"
+#include "profiling.h"
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -17,53 +19,68 @@ void TileAssignmentCalculateOverlap(const size_t numTriangles,
                                     CudaPtr<uint32_t>& devOverlapPerTriangle,
                                     VoxelsGrid<T, true>& grid) 
 {
-    PROFILING_SCOPE("TiledVox::TileAssignment::CalculateOverlap");
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
-    
-    const size_t blockSize = NextPow2(numTriangles, prop.maxThreadsDim[0] / 2);
-    const size_t gridSize = (numTriangles + blockSize - 1) / blockSize;
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        devTrianglesCoords.CopyFromHost(&mesh.FacesCoords[0], mesh.FacesCoords.size());
+        devCoords.CopyFromHost(&mesh.Coords[0], mesh.Coords.size());
+        devOverlapPerTriangle = CudaPtr<uint32_t>(numTriangles); 
+        devOverlapPerTriangle.SetMemoryToZero();
+    }
 
-    devTrianglesCoords.CopyFromHost(&mesh.FacesCoords[0], mesh.FacesCoords.size());
-    devCoords.CopyFromHost(&mesh.Coords[0], mesh.Coords.size());
-    devOverlapPerTriangle = CudaPtr<uint32_t>(numTriangles); 
-    devOverlapPerTriangle.SetMemoryToZero();
- 
-    CalculateNumOverlapPerTriangle<T><<< gridSize, blockSize >>>(
-        numTriangles, devTrianglesCoords.get(), 
-        devCoords.get(), grid, devOverlapPerTriangle.get()
-    );
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::CalculateOverlap");
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, 0);
 
-    gpuAssert(cudaPeekAtLastError());
-    cudaDeviceSynchronize();
+        const size_t blockSize = NextPow2(numTriangles, prop.maxThreadsDim[0] / 2);
+        const size_t gridSize = (numTriangles + blockSize - 1) / blockSize;
+        CalculateNumOverlapPerTriangle<T><<< gridSize, blockSize >>>(
+            numTriangles, devTrianglesCoords.get(), 
+            devCoords.get(), grid, devOverlapPerTriangle.get()
+        );
+
+        gpuAssert(cudaPeekAtLastError());
+        cudaDeviceSynchronize();
+    }
 }
 
 void TileAssignmentExclusiveScan(const size_t numTriangles,
                                  CudaPtr<uint32_t>& devOffsets,
                                  CudaPtr<uint32_t>& devOverlapPerTriangle) 
 {
-    PROFILING_SCOPE("TiledVox::TileAssignment::ExclusiveScan");
-    devOffsets = CudaPtr<uint32_t>(numTriangles);
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        devOffsets = CudaPtr<uint32_t>(numTriangles);
+    }
 
     void* devTempStorage = nullptr;
     size_t tempStorageBytes = 0;
 
-    cub::DeviceScan::ExclusiveSum(
-        devTempStorage, tempStorageBytes,
-        devOverlapPerTriangle.get(), devOffsets.get(), numTriangles
-    );
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::ExclusiveScan");
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devOverlapPerTriangle.get(), devOffsets.get(), numTriangles
+        );
+    }
 
-    gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+    }
 
-    cub::DeviceScan::ExclusiveSum(
-        devTempStorage, tempStorageBytes,
-        devOverlapPerTriangle.get(), devOffsets.get(), numTriangles
-    );
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::ExclusiveScan");
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devOverlapPerTriangle.get(), devOffsets.get(), numTriangles
+        );
 
 
-    gpuAssert(cudaPeekAtLastError());
-    cudaDeviceSynchronize();
-    cudaFree(devTempStorage);
+        gpuAssert(cudaPeekAtLastError());
+        cudaDeviceSynchronize();
+        cudaFree(devTempStorage);
+    }
 }
 
 template <typename T>
@@ -76,24 +93,29 @@ void TileAssignmentWorkQueuePopulation(const size_t numTriangles,
                                        CudaPtr<uint32_t>& devWorkQueueKeys,
                                        CudaPtr<uint32_t>& devWorkQueueValues) 
 {
-    PROFILING_SCOPE("TiledVox::TileAssignment::WorkQueuePopulation");
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
-    
-    const size_t blockSize = NextPow2(numTriangles, prop.maxThreadsDim[0] / 2);
-    const size_t gridSize = (numTriangles + blockSize - 1) / blockSize;
-
-    devWorkQueueKeys = CudaPtr<uint32_t>(workQueueSize);
-    devWorkQueueValues = CudaPtr<uint32_t>(workQueueSize);
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        devWorkQueueKeys = CudaPtr<uint32_t>(workQueueSize);
+        devWorkQueueValues = CudaPtr<uint32_t>(workQueueSize);
+    }
  
-    WorkQueuePopulation<T><<< gridSize, blockSize >>>(
-        numTriangles, devTrianglesCoords.get(), devCoords.get(), 
-        devOffsets.get(), grid, workQueueSize,
-        devWorkQueueKeys.get(), devWorkQueueValues.get()
-    );
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::WorkQueuePopulation");
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, 0);
 
-    gpuAssert(cudaPeekAtLastError());
-    cudaDeviceSynchronize();
+        const size_t blockSize = NextPow2(numTriangles, prop.maxThreadsDim[0] / 2);
+        const size_t gridSize = (numTriangles + blockSize - 1) / blockSize;
+
+        WorkQueuePopulation<T><<< gridSize, blockSize >>>(
+            numTriangles, devTrianglesCoords.get(), devCoords.get(), 
+            devOffsets.get(), grid, workQueueSize,
+            devWorkQueueKeys.get(), devWorkQueueValues.get()
+        );
+
+        gpuAssert(cudaPeekAtLastError());
+        cudaDeviceSynchronize();
+    }
 }
 
 void TileAssignmentWorkQueueSorting(const size_t workQueueSize,
@@ -106,26 +128,38 @@ void TileAssignmentWorkQueueSorting(const size_t workQueueSize,
     void* devTempStorage = nullptr;
     size_t tempStorageBytes = 0;
 
-    devWorkQueueKeysSorted = CudaPtr<uint32_t>(workQueueSize);
-    devWorkQueueValuesSorted = CudaPtr<uint32_t>(workQueueSize);
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        devWorkQueueKeysSorted = CudaPtr<uint32_t>(workQueueSize);
+        devWorkQueueValuesSorted = CudaPtr<uint32_t>(workQueueSize);
+    }
 
-    cub::DeviceRadixSort::SortPairs(
-        devTempStorage, tempStorageBytes,
-        devWorkQueueKeys.get(), devWorkQueueKeysSorted.get(),
-        devWorkQueueValues.get(), devWorkQueueValuesSorted.get(), workQueueSize
-    );
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::WorkQueueSorting");
+        cub::DeviceRadixSort::SortPairs(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeys.get(), devWorkQueueKeysSorted.get(),
+            devWorkQueueValues.get(), devWorkQueueValuesSorted.get(), workQueueSize
+        );
+    }
 
-    gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
-        
-    cub::DeviceRadixSort::SortPairs(
-        devTempStorage, tempStorageBytes,
-        devWorkQueueKeys.get(), devWorkQueueKeysSorted.get(),
-        devWorkQueueValues.get(), devWorkQueueValuesSorted.get(), workQueueSize
-    );
-    
-    gpuAssert(cudaPeekAtLastError());
-    cudaDeviceSynchronize();
-    cudaFree(devTempStorage);
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+    }
+
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::WorkQueueSorting");
+        cub::DeviceRadixSort::SortPairs(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeys.get(), devWorkQueueKeysSorted.get(),
+            devWorkQueueValues.get(), devWorkQueueValuesSorted.get(), workQueueSize
+        );
+
+        gpuAssert(cudaPeekAtLastError());
+        cudaDeviceSynchronize();
+        cudaFree(devTempStorage);
+    }
 }
 
 void TileAssignmentCompactResult(const size_t workQueueSize,
@@ -136,57 +170,81 @@ void TileAssignmentCompactResult(const size_t workQueueSize,
                                  CudaPtr<uint32_t>& devActiveTilesTrianglesCount,
                                  CudaPtr<uint32_t>& devActiveTilesOffset) 
 {
-    PROFILING_SCOPE("TiledVox::TileAssignment::CompactResult");
-    CudaPtr<uint32_t> devActiveTilesNum = CudaPtr<uint32_t>(1);
+    CudaPtr<uint32_t> devActiveTilesNum;
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        devActiveTilesNum = CudaPtr<uint32_t>(1);
+        devActiveTilesList = CudaPtr<uint32_t>(numTiled);
+        devActiveTilesTrianglesCount = CudaPtr<uint32_t>(numTiled);
+    }
+
     void* devTempStorage = nullptr;
     size_t tempStorageBytes = 0;
 
-    devActiveTilesList = CudaPtr<uint32_t>(numTiled);
-    devActiveTilesTrianglesCount = CudaPtr<uint32_t>(numTiled);
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::CompactResult");
+        cub::DeviceRunLengthEncode::Encode(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeysSorted.get(), devActiveTilesList.get(), 
+            devActiveTilesTrianglesCount.get(),
+            devActiveTilesNum.get(), workQueueSize
+        );
+    }
 
-    cub::DeviceRunLengthEncode::Encode(
-        devTempStorage, tempStorageBytes,
-        devWorkQueueKeysSorted.get(), devActiveTilesList.get(), 
-        devActiveTilesTrianglesCount.get(),
-        devActiveTilesNum.get(), workQueueSize
-    );
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+    }
 
-    gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::CompactResult");
+        cub::DeviceRunLengthEncode::Encode(
+            devTempStorage, tempStorageBytes,
+            devWorkQueueKeysSorted.get(), devActiveTilesList.get(), 
+            devActiveTilesTrianglesCount.get(), 
+            devActiveTilesNum.get(), workQueueSize
+        );
 
-    cub::DeviceRunLengthEncode::Encode(
-        devTempStorage, tempStorageBytes,
-        devWorkQueueKeysSorted.get(), devActiveTilesList.get(), 
-        devActiveTilesTrianglesCount.get(), 
-        devActiveTilesNum.get(), workQueueSize
-    );
+        cudaDeviceSynchronize();
+        cudaFree(devTempStorage);
+        devTempStorage = nullptr;
+        tempStorageBytes = 0;
+    }
 
-    cudaDeviceSynchronize();
-    cudaFree(devTempStorage);
-    devTempStorage = nullptr;
-    tempStorageBytes = 0;
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        devActiveTilesNum.CopyToHost(&numActiveTiles, 1);
+        devActiveTilesOffset = CudaPtr<uint32_t>(numActiveTiles);
+    }
 
-    devActiveTilesNum.CopyToHost(&numActiveTiles, 1);
-    devActiveTilesOffset = CudaPtr<uint32_t>(numActiveTiles);
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::CompactResult");
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devActiveTilesTrianglesCount.get(), 
+            devActiveTilesOffset.get(), 
+            numActiveTiles
+        );
+    }
 
-    cub::DeviceScan::ExclusiveSum(
-        devTempStorage, tempStorageBytes,
-        devActiveTilesTrianglesCount.get(), 
-        devActiveTilesOffset.get(), 
-        numActiveTiles
-    );
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+    }
 
-    gpuAssert(cudaMalloc(&devTempStorage, tempStorageBytes));
+    {
+        PROFILING_SCOPE("TiledVox::TileAssignment::CompactResult");
+        cub::DeviceScan::ExclusiveSum(
+            devTempStorage, tempStorageBytes,
+            devActiveTilesTrianglesCount.get(), 
+            devActiveTilesOffset.get(), 
+            numActiveTiles
+        );
 
-    cub::DeviceScan::ExclusiveSum(
-        devTempStorage, tempStorageBytes,
-        devActiveTilesTrianglesCount.get(), 
-        devActiveTilesOffset.get(), 
-        numActiveTiles
-    );
-
-    gpuAssert(cudaPeekAtLastError());
-    cudaDeviceSynchronize();
-    cudaFree(devTempStorage);
+        gpuAssert(cudaPeekAtLastError());
+        cudaDeviceSynchronize();
+        cudaFree(devTempStorage);
+    }
 }
 
 template <typename T>
@@ -410,18 +468,24 @@ __global__ void TiledProcessing(const int BATCH_SIZE,
 
 
 template<Types type, typename T>
-void Compute<Types::TILED, T>(const size_t blockSize, DeviceVoxelsGrid<T>& grid, const Mesh& mesh)
+void Compute<Types::TILED, T>(const size_t blockSize, HostVoxelsGrid<T>& grid, const Mesh& mesh)
 {
     PROFILING_SCOPE("TiledVox(" + mesh.Name + ")");
     const size_t numTriangles = mesh.FacesSize() * 2;
 
-    
+    DeviceVoxelsGrid<T> devGrid;
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        devGrid = DeviceVoxelsGrid<T>(grid.View().VoxelsPerSide(), grid.View().VoxelSize());
+        devGrid.View().SetOrigin(grid.View().OriginX(), grid.View().OriginY(), grid.View().OriginZ());
+    }
+
     CudaPtr<uint32_t> devTrianglesCoords;
     CudaPtr<Position> devCoords;
     CudaPtr<uint32_t> devOverlapPerTriangle;
     TileAssignmentCalculateOverlap<T>(
         numTriangles, mesh, devTrianglesCoords, 
-        devCoords, devOverlapPerTriangle, grid.View()
+        devCoords, devOverlapPerTriangle, devGrid.View()
     );
 
 
@@ -430,8 +494,11 @@ void Compute<Types::TILED, T>(const size_t blockSize, DeviceVoxelsGrid<T>& grid,
 
 
     int lastOverlapTriangle, lastOffset;
-    gpuAssert(cudaMemcpy(&lastOverlapTriangle, devOverlapPerTriangle.get() + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
-    gpuAssert(cudaMemcpy(&lastOffset, devOffsets.get() + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
+    { 
+        PROFILING_SCOPE("TiledVox::Memory");
+        gpuAssert(cudaMemcpy(&lastOverlapTriangle, devOverlapPerTriangle.get() + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
+        gpuAssert(cudaMemcpy(&lastOffset, devOffsets.get() + (numTriangles - 1), sizeof(uint32_t), cudaMemcpyDeviceToHost));
+    }
     const size_t workQueueSize = lastOverlapTriangle + lastOffset;
 
     CudaPtr<uint32_t> devWorkQueueKeys;
@@ -439,7 +506,7 @@ void Compute<Types::TILED, T>(const size_t blockSize, DeviceVoxelsGrid<T>& grid,
 
     TileAssignmentWorkQueuePopulation<T>(
         numTriangles, workQueueSize, devTrianglesCoords, 
-        devCoords, devOffsets, grid.View(), 
+        devCoords, devOffsets, devGrid.View(), 
         devWorkQueueKeys, devWorkQueueValues
     );
 
@@ -468,9 +535,9 @@ void Compute<Types::TILED, T>(const size_t blockSize, DeviceVoxelsGrid<T>& grid,
     {
         PROFILING_SCOPE("TiledVox::Processing");
 
-        cudaDeviceProp prop;
-        cudaGetDeviceProperties(&prop, 0);
-        const size_t maxSMEM = prop.sharedMemPerBlock / (sizeof(Position) * 3);
+        //cudaDeviceProp prop;
+        //cudaGetDeviceProperties(&prop, 0);
+        //const size_t maxSMEM = prop.sharedMemPerBlock / (sizeof(Position) * 3);
         const int defaultSize = 14;
 
         TiledProcessing<T><<< numActiveTiles, blockSize, defaultSize * 3 * sizeof(Position) >>>(
@@ -481,11 +548,16 @@ void Compute<Types::TILED, T>(const size_t blockSize, DeviceVoxelsGrid<T>& grid,
             devActiveTilesList.get(), 
             devActiveTilesTrianglesCount.get(), 
             devActiveTilesOffset.get(), 
-            grid.View()
+            devGrid.View()
         );  
 
         gpuAssert(cudaPeekAtLastError());
         cudaDeviceSynchronize();
+    }
+
+    {
+        PROFILING_SCOPE("TiledVox::Memory");
+        grid = HostVoxelsGrid<T>(devGrid);
     }
 }
 
@@ -511,7 +583,7 @@ template __global__ void TiledProcessing<uint32_t>
  const uint32_t*, const uint32_t*, VoxelsGrid<uint32_t, true>);
 
 template void Compute<Types::TILED, uint32_t>
-(const size_t, DeviceVoxelsGrid<uint32_t>&, const Mesh&); 
+(const size_t, HostVoxelsGrid<uint32_t>&, const Mesh&); 
 
 }
 

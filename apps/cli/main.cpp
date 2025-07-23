@@ -32,6 +32,7 @@ int main(int argc, char **argv) {
         ("e,export", "Exports the phases", cxxopts::value<bool>()->default_value("false"))
         ("s,sdf", "Active SDF calculation on output file", cxxopts::value<bool>()->default_value("false"))
         ("b,block-size", "Number of thread in block to process tiled voxelization", cxxopts::value<unsigned int>()->default_value("32"))
+        ("m,benckmark", "Number of iteration in benckmark mode (if not present benckmark are off)", cxxopts::value<unsigned int>()->default_value("1"))
         ("h,help", "Print usage");
 
     options.parse_positional({"filenames"});
@@ -49,13 +50,17 @@ int main(int argc, char **argv) {
     const CSG::Op                   OPERATION    = static_cast<CSG::Op>(result["operation"].as<int>());
     const Types                     TYPE         = static_cast<Types>(result["type"].as<int>());
     const unsigned int              NUM_VOXELS   = result["num-voxels"].as<unsigned int>();
-    const bool                      EXPORT       = result["export"].as<bool>();
+    const unsigned int              ITERATIONS   = result["benckmark"].as<unsigned int>();
+    const bool                      BENCKMARK    = result["benckmark"].count() > 0;
+    const bool                      EXPORT       = !BENCKMARK ? result["export"].as<bool>() : false;
     const bool                      SDF          = result["sdf"].as<bool>();
     const unsigned int              BLOCK_SIZE   = result["block-size"].as<unsigned int>();
     cpuAssert(BLOCK_SIZE % 16 == 0, "Thread per voxel must be a multiple of 16");
+        
 
     std::vector<Mesh> meshes(result.count("filenames"));
     std::vector<HostVoxelsGrid32bit> grids(result.count("filenames"));
+
     float originX, originY, originZ, voxelSize;
     {
         std::vector<Position> coords;
@@ -80,126 +85,166 @@ int main(int argc, char **argv) {
         voxelSize = sideLength / NUM_VOXELS;
     }
 
-    for(int i = 0; i < meshes.size(); i++) {
-        auto& mesh = meshes[i];
-        auto& grid = grids[i];
+    HostVoxelsGrid32bit bmGrid;
 
+    if(BENCKMARK) {
+        bmGrid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+        std::srand(std::time(nullptr));
+        for(int z = 0; z < bmGrid.View().SizeZ(); ++z)
+            for (int y = 0; y < bmGrid.View().SizeY(); ++y)
+                for (int x = 0; x < bmGrid.View().SizeX(); ++x) 
+                    bmGrid.View().Voxel(x, y, z) = static_cast<bool>(std::rand() % 2);    
+    }
 
-        if (TYPE == Types::SEQUENTIAL) {
-            grid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
-            grid.View().SetOrigin(originX, originY, originZ);
-            VOX::Compute<Types::SEQUENTIAL>(grid, mesh);
-        }
-        
-        else if (TYPE == Types::NAIVE) {
-            DeviceVoxelsGrid32bit devGrid(NUM_VOXELS, voxelSize);
-            devGrid.View().SetOrigin(originX, originY, originZ);
-            VOX::Compute<Types::NAIVE>(devGrid, mesh);
-            grid = HostVoxelsGrid32bit(devGrid);
-        }
+    for(int j = 0; j < ITERATIONS; ++j) {
 
-        
-        else if (TYPE == Types::TILED) {
-            DeviceVoxelsGrid32bit devGrid(NUM_VOXELS, voxelSize);
-            devGrid.View().SetOrigin(originX, originY, originZ);
-            VOX::Compute<Types::TILED>(BLOCK_SIZE, devGrid, mesh);
-            grid = HostVoxelsGrid32bit(devGrid);
-        }
+        for(int i = 0; i < meshes.size(); i++) {
+            auto& mesh = meshes[i];
+            auto& grid = grids[i];
 
-        if (EXPORT) {
-            Mesh outMesh;
-            VoxelsGridToMesh(grid.View(), outMesh);
-            cpuAssert(ExportMesh("out/" + GetTypesString(TYPE) + "_" + GetFilename(FILENAMES[i]), outMesh), 
-                      "Error in " + GetTypesString(TYPE) + " " + FILENAMES[i] + " export");
-        }
-
-
-        if (i > 0 && OPERATION != CSG::Op::VOID) {
 
             if (TYPE == Types::SEQUENTIAL) {
-                switch (OPERATION) {
-                    case CSG::Op::UNION: 
-                        CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Union<uint32_t>());   
-                        break;
+                grid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+                grid.View().SetOrigin(originX, originY, originZ);
+                VOX::Compute<Types::SEQUENTIAL>(grid, mesh);
+            }
 
-                    case CSG::Op::DIFFERENCE: 
-                        CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Difference<uint32_t>());   
-                        break;
+            else if (TYPE == Types::NAIVE) {
+                grid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+                grid.View().SetOrigin(originX, originY, originZ);
+                VOX::Compute<Types::NAIVE>(grid, mesh);
+            }
 
-                    case CSG::Op::INTERSECTION: 
-                        CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Intersection<uint32_t>());   
-                        break;
 
-                    case CSG::Op::VOID: 
-                        break;
+            else if (TYPE == Types::TILED) {
+                grid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+                grid.View().SetOrigin(originX, originY, originZ);
+                VOX::Compute<Types::TILED>(BLOCK_SIZE, grid, mesh);
+            }
+
+            if (EXPORT) {
+                Mesh outMesh;
+                VoxelsGridToMesh(grid.View(), outMesh);
+                cpuAssert(ExportMesh("out/" + GetTypesString(TYPE) + "_" + GetFilename(FILENAMES[i]), outMesh), 
+                          "Error in " + GetTypesString(TYPE) + " " + FILENAMES[i] + " export");
+
+            }
+
+            if (i > 0 && OPERATION != CSG::Op::VOID) {
+
+                if (TYPE == Types::SEQUENTIAL) {
+                    switch (OPERATION) {
+                        case CSG::Op::UNION: 
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Union<uint32_t>());   
+                            break;
+
+                        case CSG::Op::DIFFERENCE: 
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Difference<uint32_t>());   
+                            break;
+
+                        case CSG::Op::INTERSECTION: 
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Intersection<uint32_t>());   
+                            break;
+
+                        case CSG::Op::VOID: 
+                            break;
+                    }
+                }
+
+                else if (TYPE == Types::NAIVE || TYPE == Types::TILED) {
+
+                    switch (OPERATION) {
+                        case CSG::Op::UNION: 
+                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Union<uint32_t>());   
+                            break;
+
+                        case CSG::Op::DIFFERENCE: 
+                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Difference<uint32_t>());   
+                            break;
+
+                        case CSG::Op::INTERSECTION: 
+                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Intersection<uint32_t>());   
+                            break;
+
+                        case CSG::Op::VOID: 
+                            break;
+                    }
+                }
+            } else if (BENCKMARK && OPERATION != CSG::Op::VOID) {
+
+                if (TYPE == Types::SEQUENTIAL) {
+                    switch (OPERATION) {
+                        case CSG::Op::UNION: 
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Union<uint32_t>());   
+                            break;
+
+                        case CSG::Op::DIFFERENCE: 
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Difference<uint32_t>());   
+                            break;
+
+                        case CSG::Op::INTERSECTION: 
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Intersection<uint32_t>());   
+                            break;
+
+                        case CSG::Op::VOID: 
+                            break;
+                    }
+                }
+
+                else if (TYPE == Types::NAIVE || TYPE == Types::TILED) {
+
+                    switch (OPERATION) {
+                        case CSG::Op::UNION: 
+                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Union<uint32_t>());   
+                            break;
+
+                        case CSG::Op::DIFFERENCE: 
+                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Difference<uint32_t>());   
+                            break;
+
+                        case CSG::Op::INTERSECTION: 
+                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Intersection<uint32_t>());   
+                            break;
+
+                        case CSG::Op::VOID: 
+                            break;
+                    }
                 }
             }
 
-            else if (TYPE == Types::NAIVE || TYPE == Types::TILED) {
-                DeviceVoxelsGrid32bit devGridFirst(grids[0]);
-                DeviceVoxelsGrid32bit devGridSecond(grid);
-
-                switch (OPERATION) {
-                    case CSG::Op::UNION: 
-                        CSG::Compute<Types::NAIVE>(devGridFirst, devGridSecond, CSG::Union<uint32_t>());   
-                        break;
-
-                    case CSG::Op::DIFFERENCE: 
-                        CSG::Compute<Types::NAIVE>(devGridFirst, devGridSecond, CSG::Difference<uint32_t>());   
-                        break;
-
-                    case CSG::Op::INTERSECTION: 
-                        CSG::Compute<Types::NAIVE>(devGridFirst, devGridSecond, CSG::Intersection<uint32_t>());   
-                        break;
-
-                    case CSG::Op::VOID: 
-                        break;
-                }
-
-                grids[0] = HostVoxelsGrid32bit(devGridFirst);
-            }
-        }
-    }
-
-
-    if (EXPORT && OPERATION != CSG::Op::VOID)  {
-        Mesh outMesh;
-        VoxelsGridToMesh(grids[0].View(), outMesh);
-        cpuAssert(ExportMesh("out/csg_vox_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
-                  "Error in " + OUT_FILENAME + " export (csg)");
-    }
-
-    if (SDF) {
-        HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -INFINITY);
-
-        if (TYPE == Types::SEQUENTIAL) {
-            HostGrid<Position> positions(grids[0].View().VoxelsPerSide()); 
-            JFA::Compute<Types::SEQUENTIAL>(grids[0], sdf, positions);
+            if(BENCKMARK) break;
         }
 
-        else if (TYPE == Types::NAIVE) {
-            DeviceVoxelsGrid32bit devGrid(grids[0]);
-            DeviceGrid<float> devSDF(sdf);
-            DeviceGrid<Position> devPositions(grids[0].View().VoxelsPerSide());
 
-            JFA::Compute<Types::NAIVE>(devGrid, devSDF, devPositions);
-            sdf = HostGrid(devSDF);
-        }
-
-        else if (TYPE == Types::TILED) {
-            DeviceVoxelsGrid32bit devGrid(grids[0]);
-            DeviceGrid<float> devSDF(sdf);
-            DeviceGrid<Position> devPositions(grids[0].View().VoxelsPerSide());
-
-            JFA::Compute<Types::TILED>(devGrid, devSDF, devPositions);
-            sdf = HostGrid(devSDF);
-        }
-
-        if (EXPORT) {
+        if (EXPORT && OPERATION != CSG::Op::VOID)  {
             Mesh outMesh;
-            VoxelsGridToMeshSDFColor(grids[0].View(), sdf.View(), outMesh);
-            cpuAssert(ExportMesh("out/sdf_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
-                      "Error in " + OUT_FILENAME + " export (sdf)");
+            VoxelsGridToMesh(grids[0].View(), outMesh);
+            cpuAssert(ExportMesh("out/csg_vox_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
+                      "Error in " + OUT_FILENAME + " export (csg)");
+        }
+
+        if (SDF) {
+            HostGrid<float> sdf(grids[0].View().VoxelsPerSide(), -INFINITY);
+
+            if (TYPE == Types::SEQUENTIAL) {
+                HostGrid<Position> positions(grids[0].View().VoxelsPerSide()); 
+                JFA::Compute<Types::SEQUENTIAL>(grids[0], sdf);
+            }
+
+            else if (TYPE == Types::NAIVE) {
+                JFA::Compute<Types::NAIVE>(grids[0], sdf);
+            }
+
+            else if (TYPE == Types::TILED) {
+                JFA::Compute<Types::TILED>(grids[0], sdf);
+            }
+
+            if (EXPORT) {
+                Mesh outMesh;
+                VoxelsGridToMeshSDFColor(grids[0].View(), sdf.View(), outMesh);
+                cpuAssert(ExportMesh("out/sdf_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
+                          "Error in " + OUT_FILENAME + " export (sdf)");
+            }
         }
     }
 
