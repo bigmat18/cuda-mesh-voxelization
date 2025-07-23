@@ -85,10 +85,9 @@ int main(int argc, char **argv) {
         voxelSize = sideLength / NUM_VOXELS;
     }
 
-    HostVoxelsGrid32bit bmGrid;
+    HostVoxelsGrid32bit bmGrid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);;
 
     if(BENCKMARK) {
-        //bmGrid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
         //std::srand(std::time(nullptr));
         //for(int z = 0; z < bmGrid.View().SizeZ(); ++z)
             //for (int y = 0; y < bmGrid.View().SizeY(); ++y)
