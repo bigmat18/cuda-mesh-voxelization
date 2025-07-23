@@ -7,7 +7,7 @@ enum class Types {
     SEQUENTIAL, NAIVE, TILED
 };
 
-__host__ inline int NextPow2(const int n, const int max) {
+__host__ inline unsigned long int NextPow2(const unsigned long int n, const int max) {
     int pow2 = 1;
     while (pow2 < n && pow2 < max)
         pow2 <<= 1;
