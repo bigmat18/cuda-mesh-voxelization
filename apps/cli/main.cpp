@@ -88,12 +88,12 @@ int main(int argc, char **argv) {
     HostVoxelsGrid32bit bmGrid;
 
     if(BENCKMARK) {
-        bmGrid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
-        std::srand(std::time(nullptr));
-        for(int z = 0; z < bmGrid.View().SizeZ(); ++z)
-            for (int y = 0; y < bmGrid.View().SizeY(); ++y)
-                for (int x = 0; x < bmGrid.View().SizeX(); ++x) 
-                    bmGrid.View().Voxel(x, y, z) = static_cast<bool>(std::rand() % 2);    
+        //bmGrid = HostVoxelsGrid32bit(NUM_VOXELS, voxelSize);
+        //std::srand(std::time(nullptr));
+        //for(int z = 0; z < bmGrid.View().SizeZ(); ++z)
+            //for (int y = 0; y < bmGrid.View().SizeY(); ++y)
+                //for (int x = 0; x < bmGrid.View().SizeX(); ++x) 
+                    //bmGrid.View().Voxel(x, y, z) = static_cast<bool>(std::rand() % 2);    
     }
 
     for(int j = 0; j < ITERATIONS; ++j) {

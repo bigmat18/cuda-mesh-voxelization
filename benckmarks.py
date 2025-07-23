@@ -54,7 +54,7 @@ for filename in TESTS_ASSETS_FOLDER.iterdir():
                     f"-n{size}",
                     f"-t{type}",
                     f"-m{N_ITER}",
-                    f"-p2"
+                    f"-p1"
                 ]
                 if active_sdf:
                     command.append(active_sdf)
