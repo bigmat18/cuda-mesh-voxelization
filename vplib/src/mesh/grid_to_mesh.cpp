@@ -64,12 +64,6 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
 template <typename T>
 bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh) 
 {
-    //float max = 0; 
-    //for (int z = 0; z < colors.SizeZ(); ++z)
-        //for (int y = 0; y < colors.SizeY(); ++y)
-            //for (int x = 0; x <  colors.SizeX(); ++x)
-                //if(colors(x,y,z) > max) max = colors(x,y,z); 
-
     mesh.Clear();
 
     uint max_vertices_num = grid.Size() * 8;
@@ -102,13 +96,9 @@ bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colo
                                 grid.OriginY() + (y * grid.VoxelSize()) + (grid.VoxelSize() * dy),
                                 grid.OriginZ() + (z * grid.VoxelSize()) + (grid.VoxelSize() * dz)
                             );
-                            auto rgb = SDFToRGB(colors(x, y, z), max);
+                            auto rgb = SDFToRGB(std::sqrt(colors(x, y, z)), max);
 
                             mesh.Colors.emplace_back(std::get<0>(rgb), std::get<1>(rgb), std::get<2>(rgb), 1.0f);
-                            //if (colors(x,y,z) == 0.0f)
-                                //mesh.Colors.emplace_back(1.0f, 0.0f, 0.0f, 1.0f);
-                            //else
-                                //mesh.Colors.emplace_back(0.0f, 1.0f, 0.0f, 1.0f);
                         }
                     }
                 }

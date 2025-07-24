@@ -1,10 +1,13 @@
 #include "grid/grid.h"
 #include "grid/voxels_grid.h"
 #include "mesh/mesh.h"
+#include "profiling.h"
 #include <cmath>
 #include <iostream>
 #include <jfa/jfa.h>
 #include <limits>
+#include <string>
+#include <tuple>
 
 namespace JFA {
 
@@ -56,8 +59,10 @@ __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> 
 }
 
 template <typename T>
-__global__ void ProcessingNaive(const VoxelsGrid<T, true> grid, 
-                                Grid<float> sdf, Grid<Position> positions) {
+__global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
+                                const Grid<float> inSDF, const Grid<Position> inPositions,
+                                Grid<float> outSDF, Grid<Position> outPositions)
+{
 
     const int voxelIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
     if(voxelIndex >= grid.Size())
@@ -71,47 +76,42 @@ __global__ void ProcessingNaive(const VoxelsGrid<T, true> grid,
                                  grid.OriginY() + (voxelY * grid.VoxelSize()),
                                  grid.OriginZ() + (voxelZ * grid.VoxelSize()));
 
-    for(int k = grid.VoxelsPerSide() / 2; k >= 1; k/=2)
-    {
-        bool findNewBest = false;
-        float bestDistance = sdf(voxelX, voxelY, voxelZ);
-        Position bestPosition;
-        for(int z = -1; z <= 1; z++) {
-            for(int y = -1; y <= 1; y++) {
-                for(int x = -1; x <= 1; x++) {
-                    if(x == 0 && y == 0 && z == 0)
-                        continue;
+    bool findNewBest = false;
+    float bestDistance = inSDF(voxelX, voxelY, voxelZ);
+    Position bestPosition;
+    for(int z = -1; z <= 1; z++) {
+        for(int y = -1; y <= 1; y++) {
+            for(int x = -1; x <= 1; x++) {
+                if(x == 0 && y == 0 && z == 0)
+                    continue;
 
-                    int nx = voxelX + (x * k);
-                    int ny = voxelY + (y * k);
-                    int nz = voxelZ + (z * k);
+                int nx = voxelX + (x * K);
+                int ny = voxelY + (y * K);
+                int nz = voxelZ + (z * K);
 
-                    if(nx < 0 || nx >= grid.VoxelsPerSide() ||
-                       ny < 0 || ny >= grid.VoxelsPerSide() ||
-                       nz < 0 || nz >= grid.VoxelsPerSide())
-                        continue;
+                if(nx < 0 || nx >= grid.VoxelsPerSide() ||
+                    ny < 0 || ny >= grid.VoxelsPerSide() ||
+                    nz < 0 || nz >= grid.VoxelsPerSide())
+                    continue;
 
-                    float seed = sdf(nx, ny, nz);
-                    if(fabs(seed) < INFINITY) {
-                        Position seedPos = positions(nx, ny, nz);
+                float seed = inSDF(nx, ny, nz);
+                if(fabs(seed) < INFINITY) {
+                    Position seedPos = inPositions(nx, ny, nz);
 
-                        float distance = CalculateDistance(voxelPos, seedPos);
-                        if(distance < fabs(bestDistance)) {
-                            findNewBest = true;
-                            bestDistance = copysignf(distance, bestDistance);
-                            bestPosition = seedPos;
-                        }
+                    float distance = CalculateDistance(voxelPos, seedPos);
+                    if(distance < fabs(bestDistance)) {
+                        findNewBest = true;
+                        bestDistance = copysignf(distance, bestDistance);
+                        bestPosition = seedPos;
                     }
                 }
             }
         }
+    }
 
-        __syncthreads();
-        if (findNewBest) {
-            sdf(voxelX, voxelY, voxelZ) = bestDistance;
-            positions(voxelX, voxelY, voxelZ) = bestPosition;
-        }
-        __syncthreads();
+    if (findNewBest) {
+        outSDF(voxelX, voxelY, voxelZ) = bestDistance;
+        outPositions(voxelX, voxelY, voxelZ) = bestPosition;
     }
 }
 
@@ -144,15 +144,28 @@ void Compute<Types::NAIVE, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
         gpuAssert(cudaPeekAtLastError());
         cudaDeviceSynchronize();
     }
-    
-    {
-        PROFILING_SCOPE("NaiveJFA::Processing");
 
+    DeviceGrid<float> appSDF;
+    DeviceGrid<Position> appPositions;
+    {
+        PROFILING_SCOPE("NaiveJFA::Memory");
+
+        appSDF = DeviceGrid<float>(devSDF);
+        appPositions = DeviceGrid<Position>(devPositions);
+    }
+    
+    for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
+        PROFILING_SCOPE("NaiveJFA::Processing::Iteration(" + std::to_string(k) + ")");
         ProcessingNaive<T><<< gridSize, blockSize >>>(
-            devGrid.View(), devSDF.View(), devPositions.View()
+            k, devGrid.View(), 
+            devSDF.View(), devPositions.View(),
+            appSDF.View(), appPositions.View()
         );
+
         gpuAssert(cudaPeekAtLastError()); 
         cudaDeviceSynchronize();
+        devSDF = appSDF;
+        devPositions = appPositions;
     }
 
     {
@@ -177,9 +190,8 @@ template __global__ void InizializationNaive<uint64_t>
 
 
 template __global__ void ProcessingNaive<uint32_t>
-(const VoxelsGrid<uint32_t, true>, Grid<float>, Grid<Position>);
+(const int, const VoxelsGrid<uint32_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
 
 template __global__ void ProcessingNaive<uint64_t>
-(const VoxelsGrid<uint64_t, true>, Grid<float>, Grid<Position>);
-
+(const int, const VoxelsGrid<uint64_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
 }

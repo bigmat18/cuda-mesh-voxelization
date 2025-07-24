@@ -17,7 +17,7 @@
 namespace JFA {
 
 __host__ __device__ inline float CalculateDistance(Position p0, Position p1) 
-{ return std::sqrt(std::pow(p1.X - p0.X, 2) + std::pow(p1.Y - p0.Y, 2) + std::pow(p1.Z - p0.Z, 2)); }
+{ return ((p1.X - p0.X) * (p1.X - p0.X)) + ((p1.Y - p0.Y) * (p1.Y - p0.Y)) + ((p1.Z - p0.Z) * (p1.Z - p0.Z)); }
 
 
 template <typename T, int TILE_DIM = 3>
@@ -27,16 +27,14 @@ template <typename T>
 __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> sdf, Grid<Position> positions);
 
 template <typename T>
-__global__ void ProcessingNaive(const VoxelsGrid<T, true> grid,
-                                Grid<float> sdf, Grid<Position> positions);
-
-template <typename T>
-__global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsGrid<T, true> grid,
+__global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
                                 const Grid<float> inSDF, const Grid<Position> inPositions,
                                 Grid<float> outSDF, Grid<Position> outPositions);
 
-template <Types type, typename T>
-void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf);
+template <typename T, int TILE_DIM = 14>
+__global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
+                                const Grid<float> inSDF, const Grid<Position> inPositions,
+                                Grid<float> outSDF, Grid<Position> outPositions);
 
 template <Types type, typename T>
 void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf);

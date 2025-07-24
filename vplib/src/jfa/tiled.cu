@@ -133,14 +133,14 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
 }
 
 
-template <typename T>
-__global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsGrid<T, true> grid,
+template <typename T, int TILE_DIM>
+__global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
                                 const Grid<float> inSDF, const Grid<Position> inPositions,
                                 Grid<float> outSDF, Grid<Position> outPositions) 
 {
     extern __shared__ unsigned char smem[];
-    const int IN_TILE_DIM = inTileSize;
-    const int OUT_TILE_DIM = inTileSize + (K * 2);
+    const int OUT_TILE_DIM = TILE_DIM;
+    const int IN_TILE_DIM = OUT_TILE_DIM - (K * 2);
 
     Grid<float> sdfSMEM = Grid<float>((float*)smem, OUT_TILE_DIM);
     Grid<Position> positionSMEM = Grid<Position>((Position*)(smem + (sdfSMEM.Size() * sizeof(float))), OUT_TILE_DIM);
@@ -185,8 +185,10 @@ __global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsG
     Position voxelPos = Position(grid.OriginX() + (globalX * grid.VoxelSize()),
                                  grid.OriginY() + (globalY * grid.VoxelSize()),
                                  grid.OriginZ() + (globalZ * grid.VoxelSize()));
+ 
+    bool findNewBest = false;
     float bestDistance = sdfSMEM(smemX, smemY, smemZ);
-    Position bestPosition = positionSMEM(smemX, smemY, smemZ);
+    Position bestPosition;
     for(int z = -1; z <= 1; z++) {
         for(int y = -1; y <= 1; y++) {
             for(int x = -1; x <= 1; x++) {
@@ -203,6 +205,7 @@ __global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsG
 
                     float distance = CalculateDistance(voxelPos, seedPos);
                     if(distance < fabsf(bestDistance)) {
+                        findNewBest = true;
                         bestDistance = copysignf(distance, bestDistance);
                         bestPosition = seedPos;
                     }
@@ -211,8 +214,10 @@ __global__ void ProcessingTiled(const int K, const int inTileSize, const VoxelsG
         }
     }
 
-    outSDF(globalX, globalY, globalZ) = bestDistance;
-    outPositions(globalX, globalY, globalZ) = bestPosition;
+    if (findNewBest) {
+        outSDF(globalX, globalY, globalZ) = bestDistance;
+        outPositions(globalX, globalY, globalZ) = bestPosition;
+    }
 }
 
 template <Types type, typename T>
@@ -248,46 +253,57 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
         cudaDeviceSynchronize();
     }
 
+
+    DeviceGrid<float> appSDF;
+    DeviceGrid<Position> appPositions;
     {
-        PROFILING_SCOPE("TiledJFA::Processing");
+        PROFILING_SCOPE("NaiveJFA::Memory");
 
-        // ================= TILIED Version ===================
-        //constexpr size_t sizeEl = sizeof(float) + sizeof(Position);
-        //int inTile = k;
+        appSDF = DeviceGrid<float>(devSDF);
+        appPositions = DeviceGrid<Position>(devPositions);
+    }
 
-        //if (std::pow(inTile + (k * 2), 3) * sizeEl < prop.sharedMemPerBlock) {
-            //do inTile++;
-            //while (inTile < 9 && std::pow(inTile + (k * 2), 3) * sizeEl < prop.sharedMemPerBlock);   
-            //inTile--;
+    const int OUT_TILE_DIM = 14;
 
-            //const size_t blockSize = (((inTile * inTile * inTile) + 31) / 32) * 32;
-            //const dim3 gridSize(
-                //(grid.View().SizeX() + inTile - 1) / inTile,
-                //(grid.View().SizeY() + inTile - 1) / inTile,
-                //(grid.View().SizeZ() + inTile - 1) / inTile
-            //);
-            //const size_t smemSize = std::pow(inTile + (k * 2), 3) * sizeEl;
-               
-            //ProcessingTiled<T><<< gridSize, blockSize, smemSize >>>(
-                //k, inTile, grid.View(), 
-                //sdf.View(), positions.View(), 
-                //sdfApp.View(), positionsApp.View()
-            //);
-        //}
-        // ================= TILIED Version ===================
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+    const size_t numVoxels = grid.View().Size();
+    const size_t naiveBlockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
+    const size_t naiveGridSize = (numVoxels + naiveBlockSize - 1) / naiveBlockSize;
 
-        cudaDeviceProp prop;
-        cudaGetDeviceProperties(&prop, 0);
-        const size_t numVoxels = grid.View().Size();
-        const size_t blockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
-        const size_t gridSize = (numVoxels + blockSize - 1) / blockSize;
 
-        ProcessingNaive<T><<< gridSize, blockSize >>>(
-            devGrid.View(), devSDF.View(), devPositions.View() 
-        );
+    for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
+        PROFILING_SCOPE("TiledJFA::Processing::Iteration(" + std::to_string(k) + ")");
+
+        if (k <= 2) {
+
+            const size_t IN_TILE_DIM = OUT_TILE_DIM - (k * 2);
+            const size_t tiledBlockSize = NextPow2(IN_TILE_DIM * IN_TILE_DIM * IN_TILE_DIM, 1024); 
+            const dim3 tiledGridSize( 
+                (grid.View().SizeX() + IN_TILE_DIM - 1) / IN_TILE_DIM,  
+                (grid.View().SizeY() + IN_TILE_DIM - 1) / IN_TILE_DIM,  
+                (grid.View().SizeZ() + IN_TILE_DIM - 1) / IN_TILE_DIM   
+            );  
+
+            ProcessingTiled<T, OUT_TILE_DIM><<< tiledGridSize, tiledBlockSize, (OUT_TILE_DIM * OUT_TILE_DIM * OUT_TILE_DIM) * (sizeof(float) + sizeof(Position)) >>>(
+                k, devGrid.View(),  
+                devSDF.View(), devPositions.View(), 
+                appSDF.View(), appPositions.View() 
+            ); 
+ 
+        } else {  
+            ProcessingNaive<T><<< naiveGridSize, naiveBlockSize >>>(
+                k, devGrid.View(), 
+                devSDF.View(), devPositions.View(),
+                appSDF.View(), appPositions.View()
+            );
+        }
         gpuAssert(cudaPeekAtLastError()); 
         cudaDeviceSynchronize();
-    }
+
+        devSDF = appSDF;
+        devPositions = appPositions;
+    } 
 
     {
         PROFILING_SCOPE("TiledJFA::Memory");
@@ -309,9 +325,9 @@ template __global__ void InizializationTiled<uint64_t>
 (const VoxelsGrid<uint64_t, true>, Grid<float>, Grid<Position>);
 
 template __global__ void ProcessingTiled<uint32_t>
-(const int, const int, const VoxelsGrid<uint32_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
+(const int, const VoxelsGrid<uint32_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
 
 template __global__ void ProcessingTiled<uint64_t>
-(const int, const int, const VoxelsGrid<uint64_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
+(const int, const VoxelsGrid<uint64_t, true>, const Grid<float>, const Grid<Position>, Grid<float>, Grid<Position>);
 
 }
