@@ -11,6 +11,9 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_COLOR_DIAGNOSTICS ON)
+set(CMAKE_VERBOSE_MAKEFILE ON)
+    
 add_subdirectory("${CMAKE_SOURCE_DIR}/libs/cxxopts")
 add_subdirectory(vplib)
 add_subdirectory(apps/cli)

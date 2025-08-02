@@ -21,12 +21,16 @@ add_library(vplib STATIC ${CPP_FILES} ${CU_FILES})
 
 target_include_directories(vplib PUBLIC "${SRC_DIR}")
 
+find_package(OpenMP REQUIRED)
+target_link_libraries(vplib PUBLIC OpenMP::OpenMP_CXX)
+
 target_compile_definitions(vplib PUBLIC
     LOGGING=$<BOOL:${VPLIB_LOGGING}>
     PROFILING=$<BOOL:${VPLIB_PROFILING}>
 )
 
 target_compile_options(vplib PUBLIC
-    $<$<CONFIG:Release>:-O3 -DNDEBUG --expt-relaxed-constexpr>
-    $<$<CONFIG:Debug>:-g -O0 --expt-relaxed-constexpr>
+    $<$<CONFIG:Release>:-O3 -DNDEBUG --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -static-global-template-stub=false -fopenmp>
+    $<$<CONFIG:Debug>:-g -O0 --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -static-global-template-stub=false -fopenmp>
 )
+

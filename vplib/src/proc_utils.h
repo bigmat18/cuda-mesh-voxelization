@@ -5,7 +5,7 @@
 #include <string>
 
 enum class Types {
-    SEQUENTIAL, NAIVE, TILED
+    SEQUENTIAL, NAIVE, TILED, OPENMP
 };
 
 __host__ inline unsigned long int NextPow2(const unsigned long int n, const int max) {

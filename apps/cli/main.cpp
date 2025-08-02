@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     options.add_options()
         ("i,filenames", "Input filenames list", cxxopts::value<std::vector<std::string>>())
         ("n,num-voxels", "Number of voxel per side", cxxopts::value<unsigned int>()->default_value("32"))
-        ("t,type", "Type of processing (0 = sequential, 1 = naive, 2 = tiled)", cxxopts::value<int>()->default_value("2"))
+        ("t,type", "Type of processing (0 = sequential, 1 = naive, 2 = tiled, 3 = openmp)", cxxopts::value<int>()->default_value("2"))
         ("o,output", "Output filename", cxxopts::value<std::string>()->default_value("out.obj"))
         ("p,operation", "CSG Operations (1 = union, 2 = inter, 3 = diff)", cxxopts::value<int>()->default_value("0"))
         ("e,export", "Exports the phases", cxxopts::value<bool>()->default_value("false"))
@@ -121,6 +121,12 @@ int main(int argc, char **argv) {
                 grid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);
                 grid.View().SetOrigin(originX, originY, originZ);
                 VOX::Compute<Types::TILED>(BLOCK_SIZE, grid, mesh);
+            }
+
+            else if (TYPE == Types::OPENMP) {
+                grid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);
+                grid.View().SetOrigin(originX, originY, originZ);
+                VOX::Compute<Types::OPENMP>(grid, mesh);
             }
 
             if (EXPORT) {

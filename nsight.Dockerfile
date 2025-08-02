@@ -37,11 +37,24 @@ RUN apt-get update -y && \
         xkb-data && \
     apt-get clean
 
-# QT6 is required for the Nsight Compute UI.
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
         qt6-base-dev && \
     apt-get clean
+
+# CMake e Ninja per la compilazione
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        cmake \
+        ninja-build && \
+    apt-get clean
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        zsh && \
+    apt-get clean
+
+CMD ["zsh"]
 
 RUN cd /tmp && \
     wget  https://developer.nvidia.com/downloads/assets/tools/secure/nsight-systems/2025_3/nsight-systems-2025.3.1_2025.3.1.90-1_amd64.deb && \
