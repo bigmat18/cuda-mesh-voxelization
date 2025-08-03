@@ -1,3 +1,7 @@
+#include "cuda_ptr.h"
+#include "profiling.h"
+#include <cstdint>
+#include <iostream>
 #include <vox/vox.h>
 #include <bounding_box.h>
 #include <omp.h>
@@ -9,13 +13,22 @@ void Compute<Types::OPENMP, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh)
 {
     PROFILING_SCOPE("OpenMPVox(" + mesh.Name + ")");
 
+    auto& v = grid.View();
+    auto& triangleCoords = mesh.FacesCoords;
+    auto& coords = mesh.Coords;
+    const int numTriangle = triangleCoords.size() / 3;
+
+    int maxThreads = omp_get_max_threads();
+    std::vector<HostVoxelsGrid<T>> appGrids;
+    {
+        PROFILING_SCOPE("OpenMPVox::Memory");
+        for (int i = 0; i < maxThreads; ++i) {
+            appGrids.push_back(HostVoxelsGrid<T>(v.VoxelsPerSide(), v.VoxelSize()));
+        }
+    }
+
     {
         PROFILING_SCOPE("OpenMPVox::Processing");
-        auto& triangleCoords = mesh.FacesCoords;
-        auto& coords = mesh.Coords;
-        auto& v = grid.View();
-        const int numTriangle = triangleCoords.size() / 3;
-
         #pragma omp parallel for schedule(dynamic)
         for(int i = 0; i < numTriangle; ++i) {
             Position V0 = coords[triangleCoords[(i * 3)]];
@@ -48,6 +61,7 @@ void Compute<Types::OPENMP, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh)
 
                     float E0 = CalculateEdgeFunctionZY(V0, V1, centerY, centerZ) * sign;
                     float E1 = CalculateEdgeFunctionZY(V1, V2, centerY, centerZ) * sign;
+
                     float E2 = CalculateEdgeFunctionZY(V2, V0, centerY, centerZ) * sign;
 
                     if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
@@ -56,13 +70,23 @@ void Compute<Types::OPENMP, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh)
                         int startX = static_cast<int>((intersection - v.OriginX()) / v.VoxelSize());
                         int endX = v.VoxelsPerSide();
                         for(int x = startX; x < endX; ++x) {
-                            #pragma omp critical 
-                            {
-                                v.Voxel(x, y, z) ^= true;
-                            }
+                            appGrids[omp_get_thread_num()].View().Word(x, y, z) ^= true;
                         }
                     }
                 }
+            }
+        }
+        using uint = long unsigned int;
+
+        #pragma omp parallel for schedule(dynamic)
+        for(uint i = 0; i < v.CalculateStorageSize(v.VoxelsPerSide()); ++i) {
+            uint idx = i * v.WordSize();
+            uint x = (idx % v.SizeX());
+            uint y = (idx / v.SizeX()) % v.SizeY();
+            uint z = idx / (v.SizeX() * v.SizeY());
+
+            for(int t = 0; t < maxThreads; ++t) {
+                grid.View().Word(x, y, z) ^= appGrids[t].View().Word(x, y, z);
             }
         }
     }

@@ -89,13 +89,6 @@ int main(int argc, char **argv) {
 
     HostVoxelsGrid<gridType> bmGrid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);;
 
-    if(BENCKMARK) {
-        //std::srand(std::time(nullptr));
-        //for(int z = 0; z < bmGrid.View().SizeZ(); ++z)
-            //for (int y = 0; y < bmGrid.View().SizeY(); ++y)
-                //for (int x = 0; x < bmGrid.View().SizeX(); ++x) 
-                    //bmGrid.View().Voxel(x, y, z) = static_cast<bool>(std::rand() % 2);    
-    }
 
     for(int j = 0; j < ITERATIONS; ++j) {
 
@@ -104,7 +97,7 @@ int main(int argc, char **argv) {
             auto& grid = grids[i];
 
 
-            if (TYPE == Types::SEQUENTIAL) {
+            if (TYPE == Types::SEQUENTIAL || TYPE == Types::OPENMP) {
                 grid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);
                 grid.View().SetOrigin(originX, originY, originZ);
                 VOX::Compute<Types::SEQUENTIAL>(grid, mesh);
@@ -123,12 +116,6 @@ int main(int argc, char **argv) {
                 VOX::Compute<Types::TILED>(BLOCK_SIZE, grid, mesh);
             }
 
-            else if (TYPE == Types::OPENMP) {
-                grid = HostVoxelsGrid<gridType>(NUM_VOXELS, voxelSize);
-                grid.View().SetOrigin(originX, originY, originZ);
-                VOX::Compute<Types::OPENMP>(grid, mesh);
-            }
-
             if (EXPORT) {
                 Mesh outMesh;
                 VoxelsGridToMesh(grid.View(), outMesh);
@@ -137,20 +124,40 @@ int main(int argc, char **argv) {
 
             }
 
-            if (i > 0 && OPERATION != CSG::Op::VOID) {
+            if (i > 0 || BENCKMARK) {
+                auto& opGrid = BENCKMARK ? grid : bmGrid;
 
                 if (TYPE == Types::SEQUENTIAL) {
                     switch (OPERATION) {
                         case CSG::Op::UNION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Union<gridType>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], opGrid, CSG::Union<gridType>());   
                             break;
 
                         case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Difference<gridType>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], opGrid, CSG::Difference<gridType>());   
                             break;
 
                         case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], grid, CSG::Intersection<gridType>());   
+                            CSG::Compute<Types::SEQUENTIAL>(grids[0], opGrid, CSG::Intersection<gridType>());   
+                            break;
+
+                        case CSG::Op::VOID: 
+                            break;
+                    }
+                }
+
+                else if (TYPE == Types::OPENMP) {
+                    switch (OPERATION) {
+                        case CSG::Op::UNION: 
+                            CSG::Compute<Types::OPENMP>(grids[0], opGrid, CSG::Union<gridType>());   
+                            break;
+
+                        case CSG::Op::DIFFERENCE: 
+                            CSG::Compute<Types::OPENMP>(grids[0], opGrid, CSG::Difference<gridType>());   
+                            break;
+
+                        case CSG::Op::INTERSECTION: 
+                            CSG::Compute<Types::OPENMP>(grids[0], opGrid, CSG::Intersection<gridType>());   
                             break;
 
                         case CSG::Op::VOID: 
@@ -162,55 +169,15 @@ int main(int argc, char **argv) {
 
                     switch (OPERATION) {
                         case CSG::Op::UNION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Union<gridType>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], opGrid, CSG::Union<gridType>());   
                             break;
 
                         case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Difference<gridType>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], opGrid, CSG::Difference<gridType>());   
                             break;
 
                         case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], grid, CSG::Intersection<gridType>());   
-                            break;
-
-                        case CSG::Op::VOID: 
-                            break;
-                    }
-                }
-            } else if (BENCKMARK && OPERATION != CSG::Op::VOID) {
-
-                if (TYPE == Types::SEQUENTIAL) {
-                    switch (OPERATION) {
-                        case CSG::Op::UNION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Union<gridType>());   
-                            break;
-
-                        case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Difference<gridType>());   
-                            break;
-
-                        case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::SEQUENTIAL>(grids[0], bmGrid, CSG::Intersection<gridType>());   
-                            break;
-
-                        case CSG::Op::VOID: 
-                            break;
-                    }
-                }
-
-                else if (TYPE == Types::NAIVE || TYPE == Types::TILED) {
-
-                    switch (OPERATION) {
-                        case CSG::Op::UNION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Union<gridType>());   
-                            break;
-
-                        case CSG::Op::DIFFERENCE: 
-                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Difference<gridType>());   
-                            break;
-
-                        case CSG::Op::INTERSECTION: 
-                            CSG::Compute<Types::NAIVE>(grids[0], bmGrid, CSG::Intersection<gridType>());   
+                            CSG::Compute<Types::NAIVE>(grids[0], opGrid, CSG::Intersection<gridType>());   
                             break;
 
                         case CSG::Op::VOID: 
@@ -238,13 +205,18 @@ int main(int argc, char **argv) {
                 JFA::Compute<Types::SEQUENTIAL>(grids[0], sdf);
             }
 
+            else if (TYPE == Types::OPENMP) {
+                HostGrid<Position> positions(grids[0].View().VoxelsPerSide()); 
+                JFA::Compute<Types::OPENMP>(grids[0], sdf);
+            }
+
             else if (TYPE == Types::NAIVE) {
                 JFA::Compute<Types::NAIVE>(grids[0], sdf);
             }
 
             else if (TYPE == Types::TILED) {
                 JFA::Compute<Types::TILED>(grids[0], sdf);
-            }
+            } 
 
             if (EXPORT) {
                 Mesh outMesh;

@@ -8,6 +8,7 @@ template <Types type, typename T, typename func>
 void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op) 
 {
     PROFILING_SCOPE("SequentialCSG");
+    using uint = long unsigned int;
 
     {
         PROFILING_SCOPE("SequentialCSG::Processing");
@@ -15,19 +16,15 @@ void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op)
         auto& grid2V = grid2.View();
 
         const size_t numWord = (grid1V.Size() + grid1V.WordSize() - 1) / grid1V.WordSize();
-        for(int i = 0; i < numWord; i++) {
+        for(uint i = 0; i < numWord; i++) {
 
-            const int voxelIndex = i * grid1V.WordSize();
+            const uint voxelIndex = i * grid1V.WordSize();
 
-            const int z = voxelIndex / (grid1V.VoxelsPerSide() * grid1V.VoxelsPerSide());
-            const int y = (voxelIndex % (grid1V.VoxelsPerSide() * grid1V.VoxelsPerSide())) / grid1V.VoxelsPerSide();
-            const int x = voxelIndex % grid1V.VoxelsPerSide();
+            const uint z = voxelIndex / (grid1V.VoxelsPerSide() * grid1V.VoxelsPerSide());
+            const uint y = (voxelIndex % (grid1V.VoxelsPerSide() * grid1V.VoxelsPerSide())) / grid1V.VoxelsPerSide();
+            const uint x = voxelIndex % grid1V.VoxelsPerSide();
 
-            T word = 0;
-            for(int i = 0; i < grid2V.WordSize(); ++i) 
-                word |= grid2V.Voxel(x + i, y, z) << i;
-
-            Op(grid1V.Word(x, y, z), word);
+            Op(grid1V.Word(x, y, z), grid2V.Voxel(x, y, z));
         }
     }
 }
