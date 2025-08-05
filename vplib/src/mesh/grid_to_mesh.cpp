@@ -6,7 +6,7 @@
 #include <mesh/grid_to_mesh.h>
 
 template <typename T>
-bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh) 
+bool VoxelsGridToMeshCompressed(const VoxelsGrid<T>& grid, Mesh& mesh) 
 {
     mesh.Clear();
 
@@ -62,7 +62,7 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh)
 
 
 template <typename T>
-bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh) 
+bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh) 
 {
     mesh.Clear();
 
@@ -80,7 +80,7 @@ bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colo
     mesh.Normals.emplace_back(0,-1,0);
     mesh.Normals.emplace_back(-1,0,0);
 
-    float max = std::sqrt(std::pow(grid.VoxelsPerSide() * grid.VoxelSize(), 2) * 3);
+float max = std::sqrt(std::pow(grid.VoxelsPerSide() * grid.VoxelSize(), 2) * 3);
     unsigned int numberVoxelInsert = 0;
     for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
         for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
@@ -171,14 +171,48 @@ bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colo
 }
 
 
-template bool VoxelsGridToMeshSDFColor<uint32_t>
+template <typename T>
+bool VoxelsGridToPointCloud(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh)
+{
+    mesh.Clear();
+    uint max_vertices_num = grid.Size();
+    mesh.VerticesReserve(max_vertices_num);
+
+    float max = std::sqrt(std::pow(grid.VoxelsPerSide() * grid.VoxelSize(), 2) * 3);
+    for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
+        for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
+            for (uint x = 0; x < grid.VoxelsPerSide(); ++x) {
+                if(!grid.Voxel(x, y, z))
+                    continue;
+                
+                mesh.Coords.emplace_back(
+                    grid.OriginX() + (x * grid.VoxelSize()) + (grid.VoxelSize() / 2),
+                    grid.OriginY() + (y * grid.VoxelSize()) + (grid.VoxelSize() / 2),
+                    grid.OriginZ() + (z * grid.VoxelSize()) + (grid.VoxelSize() / 2)
+                );
+                auto rgb = SDFToRGB(std::sqrt(colors(x, y, z)), max);
+                mesh.Colors.emplace_back(std::get<0>(rgb), std::get<1>(rgb), std::get<2>(rgb), 1.0f);
+            }
+        }
+    }
+    mesh.ShrinkToFit();
+    return true;
+}
+
+template bool VoxelsGridToPointCloud<uint32_t>
  (const VoxelsGrid<uint32_t>&, const Grid<float>&, Mesh&);
 
-template bool VoxelsGridToMeshSDFColor<uint64_t>
+template bool VoxelsGridToPointCloud<uint64_t>
  (const VoxelsGrid<uint64_t>&, const Grid<float>&, Mesh&);
 
 template bool VoxelsGridToMesh<uint32_t>
-    (const VoxelsGrid<uint32_t> &grid, Mesh &mesh);
+ (const VoxelsGrid<uint32_t>&, const Grid<float>&, Mesh&);
 
 template bool VoxelsGridToMesh<uint64_t>
+ (const VoxelsGrid<uint64_t>&, const Grid<float>&, Mesh&);
+
+template bool VoxelsGridToMeshCompressed<uint32_t>
+    (const VoxelsGrid<uint32_t> &grid, Mesh &mesh);
+
+template bool VoxelsGridToMeshCompressed<uint64_t>
     (const VoxelsGrid<uint64_t> &grid, Mesh &mesh);

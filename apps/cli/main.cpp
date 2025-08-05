@@ -53,13 +53,13 @@ int main(int argc, char **argv) {
     const Types                     TYPE         = static_cast<Types>(result["type"].as<int>());
     const unsigned int              NUM_VOXELS   = result["num-voxels"].as<unsigned int>();
     const unsigned int              ITERATIONS   = result["benckmark"].as<unsigned int>();
-    const bool                      BENCKMARK    = result["benckmark"].count() > 0;
+    const bool                      BENCKMARK    = ITERATIONS > 1;
     const bool                      EXPORT       = !BENCKMARK ? result["export"].as<bool>() : false;
     const bool                      SDF          = result["sdf"].as<bool>();
     const unsigned int              BLOCK_SIZE   = result["block-size"].as<unsigned int>();
     cpuAssert(BLOCK_SIZE % 16 == 0, "Thread per voxel must be a multiple of 16");
         
-
+    LOG_INFO("%d", BENCKMARK);
     std::vector<Mesh> meshes(result.count("filenames"));
     std::vector<HostVoxelsGrid<gridType>> grids(result.count("filenames"));
 
@@ -118,14 +118,14 @@ int main(int argc, char **argv) {
 
             if (EXPORT) {
                 Mesh outMesh;
-                VoxelsGridToMesh(grid.View(), outMesh);
+                VoxelsGridToMeshCompressed(grid.View(), outMesh);
                 cpuAssert(ExportMesh("out/" + GetTypesString(TYPE) + "_" + GetFilename(FILENAMES[i]), outMesh), 
                           "Error in " + GetTypesString(TYPE) + " " + FILENAMES[i] + " export");
 
             }
 
             if (i > 0 || BENCKMARK) {
-                auto& opGrid = BENCKMARK ? grid : bmGrid;
+                auto& opGrid = !BENCKMARK ? grid : bmGrid;
 
                 if (TYPE == Types::SEQUENTIAL) {
                     switch (OPERATION) {
@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
 
         if (EXPORT && OPERATION != CSG::Op::VOID)  {
             Mesh outMesh;
-            VoxelsGridToMesh(grids[0].View(), outMesh);
+            VoxelsGridToMeshCompressed(grids[0].View(), outMesh);
             cpuAssert(ExportMesh("out/csg_vox_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
                       "Error in " + OUT_FILENAME + " export (csg)");
         }
@@ -220,8 +220,13 @@ int main(int argc, char **argv) {
 
             if (EXPORT) {
                 Mesh outMesh;
-                VoxelsGridToMeshSDFColor(grids[0].View(), sdf.View(), outMesh);
+                VoxelsGridToMesh(grids[0].View(), sdf.View(), outMesh);
                 cpuAssert(ExportMesh("out/sdf_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
+                          "Error in " + OUT_FILENAME + " export (sdf)");
+
+
+                VoxelsGridToPointCloud(grids[0].View(), sdf.View(), outMesh);
+                cpuAssert(ExportMesh("out/sdf_point_cloud_" + GetTypesString(TYPE) + "_" + OUT_FILENAME, outMesh), 
                           "Error in " + OUT_FILENAME + " export (sdf)");
             }
         }

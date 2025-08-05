@@ -16,9 +16,10 @@ parser = argparse.ArgumentParser(description="Benchmark runner")
 parser.add_argument("--niter", type=int, default=10, help="Number of iterations per test")
 parser.add_argument("--folder", type=str, default="./tests", help="Folder with input files")
 parser.add_argument("--maxsize", type=int, default=128, help="Maximum size (power of 2, starting from 32)")
+parser.add_argument("--minsize", type=int, default=32, help="Minimum size (power of 2, starting from 32)")
 parser.add_argument("--output", type=str, default="benckmarks", help="Output folder for CSVs")
 parser.add_argument("--no-sdf", action="store_true", help="Disable the conditional -s flag for the executable.")
-parser.add_argument("--types", nargs="+", default=["0", "1", "2"], help="List of algorithm types to run (e.g., 0 1 2).")
+parser.add_argument("--types", nargs="+", default=["3", "1", "2"], help="List of algorithm types to run (e.g., 0 1 2).")
 args = parser.parse_args()
 
 N_ITER = args.niter
@@ -28,7 +29,7 @@ OUTPUT_FOLDER_PATH = Path(OUTPUT_FOLDER)
 OUTPUT_FOLDER_PATH.mkdir(exist_ok=True)
 
 sizes = []
-size = 32
+size = args.minsize
 while size <= args.maxsize:
     sizes.append(str(size))
     size *= 2

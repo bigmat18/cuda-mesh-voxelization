@@ -27,7 +27,7 @@ void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op)
             const uint y = (voxelIndex % (grid1V.VoxelsPerSide() * grid1V.VoxelsPerSide())) / grid1V.VoxelsPerSide();
             const uint x = voxelIndex % grid1V.VoxelsPerSide(); 
 
-            Op(grid1V.Word(x, y, z), grid2V.Voxel(x, y, z));
+            Op(grid1V.Word(x, y, z), grid2V.Word(x, y, z));
         }
     }
 }

@@ -123,10 +123,12 @@ inline void AddFacesVertexYZ(float voxelX, float voxelY, float voxelZ,
 
 
 template <typename T>
-bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, Mesh& mesh); 
-
+bool VoxelsGridToMeshCompressed(const VoxelsGrid<T>& grid, Mesh& mesh); 
 
 template <typename T>
-bool VoxelsGridToMeshSDFColor(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh); 
+bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh); 
+
+template <typename T>
+bool VoxelsGridToPointCloud(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh); 
 
 #endif // !GRID_TO_MESH_H

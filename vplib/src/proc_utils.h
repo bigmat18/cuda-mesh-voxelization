@@ -28,6 +28,7 @@ __host__ inline std::string GetTypesString(const Types type) {
         case Types::SEQUENTIAL: return "sequential";
         case Types::NAIVE:      return "naive";
         case Types::TILED:      return "tiled";
+        case Types::OPENMP:     return "openmp";
         default:                return "Unknown";
     }
 }
