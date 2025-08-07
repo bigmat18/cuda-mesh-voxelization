@@ -23,9 +23,9 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
 
     VoxelsGrid<T, true> gridSMEM(&SMEM[0], grid.WordSize() * 3, OUT_TILE_DIM, OUT_TILE_DIM);
 
-    const int voxelX = blockIdx.x * (grid.WordSize() * TILE_DIM) + threadIdx.x;
-    const int voxelY = blockIdx.y * TILE_DIM + threadIdx.y;
-    const int voxelZ = blockIdx.z * TILE_DIM + threadIdx.z;
+    int voxelX = (blockIdx.x * (grid.WordSize() * TILE_DIM)) + threadIdx.x;
+    int voxelY = (blockIdx.y * TILE_DIM) + threadIdx.y;
+    int voxelZ = (blockIdx.z * TILE_DIM) + threadIdx.z;
     const int voxelIndex = grid.Index(voxelX, voxelY, voxelZ);
 
     if(voxelIndex >= grid.Size())
@@ -82,15 +82,19 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
             }
         }
 
-        __syncthreads();
+        __syncthreads();    
+
+        int voxelX = (blockIdx.x * (grid.WordSize() * TILE_DIM)) + (depth * grid.WordSize()) + threadIdx.x;
         
         int tileX = grid.WordSize() + threadIdx.x;
-        int tileY = (OUT_TILE_DIM / 2) + threadIdx.y;
-        int tileZ = (OUT_TILE_DIM / 2) + threadIdx.z;    
+        int tileY = (OUT_TILE_DIM / 2) + (threadIdx.y - (blockDim.y / 2));
+        int tileZ = (OUT_TILE_DIM / 2) + (threadIdx.z - (blockDim.z / 2));    
 
         if(gridSMEM.Voxel(tileX, tileY, tileZ)) {
             bool found = false;
-            Position pos;
+            Position pos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
+                                    grid.OriginY() + (voxelY * grid.VoxelSize()),
+                                    grid.OriginZ() + (voxelZ * grid.VoxelSize()));
 
             for(int z = -1; z <= 1; z++) {
                 for(int y = -1; y <= 1; y++) {
@@ -102,11 +106,8 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
                         int ny = tileY + y;
                         int nz = tileZ + z;
 
-                        if(!gridSMEM.Voxel(nx, ny, nz)) {
+                        if (!gridSMEM.Voxel(nx, ny, nz)) {  
                             found = true;
-                            pos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
-                                           grid.OriginY() + (voxelY * grid.VoxelSize()),
-                                           grid.OriginZ() + (voxelZ * grid.VoxelSize()));
                         }
                     }
                 }
@@ -239,10 +240,10 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
     {
         PROFILING_SCOPE("TiledJFA::Inizialization");
 
-        const size_t TILE_DIM = 1;
+        const size_t TILE_DIM = TILE_DIM_INIT;
         dim3 blockSize(grid.View().WordSize(), TILE_DIM, TILE_DIM);
         dim3 gridSize(
-            (grid.View().VoxelsPerSide() + grid.View().WordSize() * TILE_DIM - 1) / (grid.View().WordSize() * TILE_DIM),
+            (grid.View().VoxelsPerSide() + (grid.View().WordSize() * TILE_DIM) - 1) / (grid.View().WordSize() * TILE_DIM),
             (grid.View().VoxelsPerSide() + TILE_DIM - 1) / TILE_DIM,
             (grid.View().VoxelsPerSide() + TILE_DIM - 1) / TILE_DIM
         );                                          
@@ -252,7 +253,6 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
         gpuAssert(cudaPeekAtLastError());
         cudaDeviceSynchronize();
     }
-
 
     DeviceGrid<float> appSDF;
     DeviceGrid<Position> appPositions;
@@ -273,7 +273,7 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
 
 
     for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
-        PROFILING_SCOPE("TiledJFA::Processing::Iteration(" + std::to_string(k) + ")");
+        PROFILING_SCOPE("TiledJFA::Processing::Iteration-" + std::to_string(k));
 
         if (k <= 2) {
 
@@ -285,7 +285,9 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
                 (grid.View().SizeZ() + IN_TILE_DIM - 1) / IN_TILE_DIM   
             );  
 
-            ProcessingTiled<T, OUT_TILE_DIM><<< tiledGridSize, tiledBlockSize, (OUT_TILE_DIM * OUT_TILE_DIM * OUT_TILE_DIM) * (sizeof(float) + sizeof(Position)) >>>(
+            ProcessingTiled<T, OUT_TILE_DIM><<< tiledGridSize, tiledBlockSize, 
+                (OUT_TILE_DIM * OUT_TILE_DIM * OUT_TILE_DIM) * (sizeof(float) + sizeof(Position)) >>>
+            (
                 k, devGrid.View(),  
                 devSDF.View(), devPositions.View(), 
                 appSDF.View(), appPositions.View() 

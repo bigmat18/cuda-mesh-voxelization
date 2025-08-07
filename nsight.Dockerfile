@@ -34,6 +34,10 @@ RUN apt-get update -y && \
         openssh-client \
         wget \
         xcb \
+        openjdk-21-jdk \
+        dnsutils \
+        telnet \
+        iproute2 iputils-ping \
         xkb-data && \
     apt-get clean
 

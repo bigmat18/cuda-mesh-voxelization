@@ -3,6 +3,7 @@
 #include "mesh/mesh.h"
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <mesh/grid_to_mesh.h>
 
 template <typename T>
@@ -80,12 +81,12 @@ bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh
     mesh.Normals.emplace_back(0,-1,0);
     mesh.Normals.emplace_back(-1,0,0);
 
-float max = std::sqrt(std::pow(grid.VoxelsPerSide() * grid.VoxelSize(), 2) * 3);
+    float max = std::sqrt(std::pow(grid.VoxelsPerSide() * grid.VoxelSize(), 2) * 3);
     unsigned int numberVoxelInsert = 0;
     for (uint z = 0; z < grid.VoxelsPerSide(); ++z) {
         for (uint y = 0; y < grid.VoxelsPerSide(); ++y) {
             for (uint x = 0; x < grid.VoxelsPerSide(); ++x) {
-                if(!grid.Voxel(x, y, z))
+                if(!grid.Voxel(x, y, z) || std::abs(colors(x,y,z)) == INFINITY)
                     continue;
                
                 for(int dz = 0; dz <= 1; ++dz) {

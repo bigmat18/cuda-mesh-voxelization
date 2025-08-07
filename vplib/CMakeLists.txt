@@ -30,7 +30,7 @@ target_compile_definitions(vplib PUBLIC
 )
 
 target_compile_options(vplib PUBLIC
-    $<$<CONFIG:Release>:-O3 -DNDEBUG --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -static-global-template-stub=false -fopenmp>
-    $<$<CONFIG:Debug>:-g -O0 --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -static-global-template-stub=false -fopenmp>
+    $<$<CONFIG:Release>:-O3 -DNDEBUG --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -fopenmp>
+    $<$<CONFIG:Debug>:-g -O0 --expt-relaxed-constexpr -Wno-deprecated-gpu-targets -fopenmp>
 )
 
