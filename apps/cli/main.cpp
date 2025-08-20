@@ -59,7 +59,6 @@ int main(int argc, char **argv) {
     const unsigned int              BLOCK_SIZE   = result["block-size"].as<unsigned int>();
     cpuAssert(BLOCK_SIZE % 16 == 0, "Thread per voxel must be a multiple of 16");
         
-    LOG_INFO("%d", BENCKMARK);
     std::vector<Mesh> meshes(result.count("filenames"));
     std::vector<HostVoxelsGrid<gridType>> grids(result.count("filenames"));
 
