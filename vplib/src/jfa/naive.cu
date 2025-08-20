@@ -155,7 +155,7 @@ void Compute<Types::NAIVE, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
     }
     
     for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
-        PROFILING_SCOPE("NaiveJFA::Processing::Iteration(" + std::to_string(k) + ")");
+        PROFILING_SCOPE("NaiveJFA::Processing::Iteration-" + std::to_string(k));
         ProcessingNaive<T><<< gridSize, blockSize >>>(
             k, devGrid.View(), 
             devSDF.View(), devPositions.View(),

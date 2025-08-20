@@ -11,7 +11,7 @@ namespace VOX {
 template<Types type, typename T>
 void Compute<Types::OPENMP, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh) 
 {
-    PROFILING_SCOPE("OpenMPVox(" + mesh.Name + ")");
+    PROFILING_SCOPE("OpenmpVox(" + mesh.Name + ")");
 
     auto& v = grid.View();
     auto& triangleCoords = mesh.FacesCoords;
@@ -21,14 +21,14 @@ void Compute<Types::OPENMP, T>(HostVoxelsGrid<T>& grid, const Mesh& mesh)
     int maxThreads = omp_get_max_threads();
     std::vector<HostVoxelsGrid<T>> appGrids;
     {
-        PROFILING_SCOPE("OpenMPVox::Memory");
+        PROFILING_SCOPE("OpenmpVox::Memory");
         for (int i = 0; i < maxThreads; ++i) {
             appGrids.push_back(HostVoxelsGrid<T>(v.VoxelsPerSide(), v.VoxelSize()));
         }
     }
 
     {
-        PROFILING_SCOPE("OpenMPVox::Processing");
+        PROFILING_SCOPE("OpenmpVox::Processing");
         #pragma omp parallel for schedule(dynamic)
         for(int i = 0; i < numTriangle; ++i) {
             Position V0 = coords[triangleCoords[(i * 3)]];

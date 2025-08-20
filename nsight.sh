@@ -11,5 +11,6 @@ docker run -it \
        seccomp=unconfined \
        -v /home/bigmat18:/home/bigmat18 \
        --network=host \
-       nsight
+        --dns=8.8.8.8 --dns=1.1.1.1 \
+       nsight-tunnel
 

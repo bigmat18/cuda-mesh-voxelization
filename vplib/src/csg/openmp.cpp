@@ -9,10 +9,10 @@ template <Types type, typename T, typename func>
 void Compute(HostVoxelsGrid<T>& grid1, HostVoxelsGrid<T>& grid2, func Op) 
 {
     using uint = long unsigned int;
-    PROFILING_SCOPE("OpenMPCSG");
+    PROFILING_SCOPE("OpenmpCSG");
 
     {
-        PROFILING_SCOPE("OpenMPCSG::Processing");
+        PROFILING_SCOPE("OpenmpCSG::Processing");
         auto& grid1V = grid1.View();
         auto& grid2V = grid2.View();
 

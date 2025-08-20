@@ -23,7 +23,6 @@ def plot_algorithms_comparison(csv_files, output_pdf):
             values = df[df["size"] == size][main_col].dropna().astype(float)
             if len(values) > 1:
                 values = values.drop(values.idxmax())
-            values = values / 1000
             mean = values.mean() if not values.empty else float("nan")
             means.append(mean)
         all_means.extend(means)
@@ -34,8 +33,8 @@ def plot_algorithms_comparison(csv_files, output_pdf):
             label=mainname
         )
 
-    plt.xlabel("n")
-    plt.ylabel("s")
+    plt.xlabel("voxel grid size")
+    plt.ylabel("ms")
     plt.grid(True, which="both", ls="--", alpha=0.5)
     plt.legend()
     plt.tight_layout()
@@ -60,17 +59,8 @@ def plot_algorithms_comparison(csv_files, output_pdf):
 
 def main():
     parser = argparse.ArgumentParser(description="Plot algorithm comparison (mean-excluding-max) from CSVs")
-    parser.add_argument(
-        "csv_files",
-        nargs="+",
-        help="List of CSV files to compare"
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default="comp.pdf",
-        help="Output PDF file name (default: algorithm_comparison_mean_excl_max.pdf)"
-    )
+    parser.add_argument("csv_files",nargs="+",help="List of CSV files to compare")
+    parser.add_argument("--output",type=str,default="comp.pdf",help="Output PDF file name (default: algorithm_comparison_mean_excl_max.pdf)")
     args = parser.parse_args()
 
     output_dir = Path("plots")

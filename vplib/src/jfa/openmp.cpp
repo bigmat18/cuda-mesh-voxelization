@@ -8,17 +8,17 @@ namespace JFA {
 template <Types type, typename T>
 void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
 {
-    PROFILING_SCOPE("OpenMPJFA");
+    PROFILING_SCOPE("OpenmpJFA");
     auto& gridV = grid.View();
 
     HostGrid<Position> positions;
     {
-        PROFILING_SCOPE("OpenMPJFA::Memory");
+        PROFILING_SCOPE("OpenmpJFA::Memory");
         positions = HostGrid<Position>(grid.View().VoxelsPerSide());
     }
 
     {
-        PROFILING_SCOPE("OpenMPJFA::Initialization");
+        PROFILING_SCOPE("OpenmpJFA::Initialization");
         auto& sdfV = sdf.View();
         auto& positionsV = positions.View();
 
@@ -67,11 +67,11 @@ void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
     
 
     {
-        PROFILING_SCOPE("OpenMPJFA::Processing");
         HostGrid sdfApp(sdf);
         HostGrid positionsApp(positions);
 
-        for(int k = gridV.VoxelsPerSide() / 2; k >= 1; k/=2) {
+        for(int k = gridV.VoxelsPerSide() / 2; k >= 1; k/=2) { 
+            PROFILING_SCOPE("Openmp::Processing::Iteration-" + std::to_string(k));
 
             #pragma omp parallel for collapse(3) schedule(static)
             for (int voxelZ = 0; voxelZ < gridV.SizeZ(); ++voxelZ)  {
