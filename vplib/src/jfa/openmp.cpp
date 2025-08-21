@@ -67,11 +67,11 @@ void Compute(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
     
 
     {
+        PROFILING_SCOPE("Openmp::Processing");
         HostGrid sdfApp(sdf);
         HostGrid positionsApp(positions);
 
         for(int k = gridV.VoxelsPerSide() / 2; k >= 1; k/=2) { 
-            PROFILING_SCOPE("Openmp::Processing::Iteration-" + std::to_string(k));
 
             #pragma omp parallel for collapse(3) schedule(static)
             for (int voxelZ = 0; voxelZ < gridV.SizeZ(); ++voxelZ)  {

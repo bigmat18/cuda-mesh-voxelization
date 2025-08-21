@@ -17,7 +17,7 @@ parser.add_argument("--niter", type=int, default=10, help="Number of iterations 
 parser.add_argument("--folder", type=str, default="./tests", help="Folder with input files")
 parser.add_argument("--maxsize", type=int, default=128, help="Maximum size (power of 2, starting from 32)")
 parser.add_argument("--minsize", type=int, default=32, help="Minimum size (power of 2, starting from 32)")
-parser.add_argument("--output", type=str, default="benckmarks", help="Output folder for CSVs")
+parser.add_argument("--output", type=str, default="benchmarks", help="Output folder for CSVs")
 parser.add_argument("--no-sdf", action="store_true", help="Disable the conditional -s flag for the executable.")
 parser.add_argument("--types", nargs="+", default=["3", "1", "2"], help="List of algorithm types to run (e.g., 0 1 2).")
 args = parser.parse_args()
@@ -45,7 +45,7 @@ for filename in TESTS_ASSETS_FOLDER.iterdir():
     for type in args.types:
         for size in sizes:
             active_sdf = ""
-            if not args.no_sdf and int(size) <= 1024:
+            if not args.no_sdf and int(size) <= 512:
                 active_sdf = "-s"
 
             try:

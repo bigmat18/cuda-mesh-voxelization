@@ -2,7 +2,7 @@
 
 # Build output directories
 /build/
-/benckmarks/
+/benchmarks/
 /bin/
 /tests/
 /obj/

@@ -137,7 +137,7 @@ void Compute<Types::NAIVE, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
     }
 
     {
-        PROFILING_SCOPE("NaiveJFA::Inizialization");
+        PROFILING_SCOPE("NaiveJFA::Initialization");
         InizializationNaive<T><<< gridSize, blockSize >>>(
             devGrid.View(), devSDF.View(), devPositions.View()
         );
@@ -153,19 +153,21 @@ void Compute<Types::NAIVE, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
         appSDF = DeviceGrid<float>(devSDF);
         appPositions = DeviceGrid<Position>(devPositions);
     }
-    
-    for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
-        PROFILING_SCOPE("NaiveJFA::Processing::Iteration-" + std::to_string(k));
-        ProcessingNaive<T><<< gridSize, blockSize >>>(
-            k, devGrid.View(), 
-            devSDF.View(), devPositions.View(),
-            appSDF.View(), appPositions.View()
-        );
+   
+    {
+        PROFILING_SCOPE("NaiveJFA::Processing");
+        for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
+            ProcessingNaive<T><<< gridSize, blockSize >>>(
+                k, devGrid.View(), 
+                devSDF.View(), devPositions.View(),
+                appSDF.View(), appPositions.View()
+            );
 
-        gpuAssert(cudaPeekAtLastError()); 
-        cudaDeviceSynchronize();
-        devSDF = appSDF;
-        devPositions = appPositions;
+            gpuAssert(cudaPeekAtLastError()); 
+            cudaDeviceSynchronize();
+            devSDF = appSDF;
+            devPositions = appPositions;
+        }
     }
 
     {

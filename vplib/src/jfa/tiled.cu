@@ -238,7 +238,7 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
     }
     
     {
-        PROFILING_SCOPE("TiledJFA::Inizialization");
+        PROFILING_SCOPE("TiledJFA::Initialization");
 
         const size_t TILE_DIM = TILE_DIM_INIT;
         dim3 blockSize(grid.View().WordSize(), TILE_DIM, TILE_DIM);
@@ -263,49 +263,53 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
         appPositions = DeviceGrid<Position>(devPositions);
     }
 
-    const int OUT_TILE_DIM = 14;
+    {
+        PROFILING_SCOPE("TiledJFA::Processing");
 
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
-    const size_t numVoxels = grid.View().Size();
-    const size_t naiveBlockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
-    const size_t naiveGridSize = (numVoxels + naiveBlockSize - 1) / naiveBlockSize;
+        const int OUT_TILE_DIM = 14;
+
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, 0);
+        const size_t numVoxels = grid.View().Size();
+        const size_t naiveBlockSize = NextPow2(numVoxels, prop.maxThreadsDim[0] / 2);
+        const size_t naiveGridSize = (numVoxels + naiveBlockSize - 1) / naiveBlockSize;
 
 
-    for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
-        PROFILING_SCOPE("TiledJFA::Processing::Iteration-" + std::to_string(k));
+        for (int k = grid.View().VoxelsPerSide() / 2; k >= 1; k /= 2) {
 
-        if (k <= 2) {
+            if (k <= 2) {
 
-            const size_t IN_TILE_DIM = OUT_TILE_DIM - (k * 2);
-            const size_t tiledBlockSize = NextPow2(IN_TILE_DIM * IN_TILE_DIM * IN_TILE_DIM, 1024); 
-            const dim3 tiledGridSize( 
-                (grid.View().SizeX() + IN_TILE_DIM - 1) / IN_TILE_DIM,  
-                (grid.View().SizeY() + IN_TILE_DIM - 1) / IN_TILE_DIM,  
-                (grid.View().SizeZ() + IN_TILE_DIM - 1) / IN_TILE_DIM   
-            );  
+                const size_t IN_TILE_DIM = OUT_TILE_DIM - (k * 2);
+                const size_t tiledBlockSize = NextPow2(IN_TILE_DIM * IN_TILE_DIM * IN_TILE_DIM, 1024); 
+                const dim3 tiledGridSize( 
+                    (grid.View().SizeX() + IN_TILE_DIM - 1) / IN_TILE_DIM,  
+                    (grid.View().SizeY() + IN_TILE_DIM - 1) / IN_TILE_DIM,  
+                    (grid.View().SizeZ() + IN_TILE_DIM - 1) / IN_TILE_DIM   
+                );  
 
-            ProcessingTiled<T, OUT_TILE_DIM><<< tiledGridSize, tiledBlockSize, 
-                (OUT_TILE_DIM * OUT_TILE_DIM * OUT_TILE_DIM) * (sizeof(float) + sizeof(Position)) >>>
-            (
-                k, devGrid.View(),  
-                devSDF.View(), devPositions.View(), 
-                appSDF.View(), appPositions.View() 
-            ); 
- 
-        } else {  
-            ProcessingNaive<T><<< naiveGridSize, naiveBlockSize >>>(
-                k, devGrid.View(), 
-                devSDF.View(), devPositions.View(),
-                appSDF.View(), appPositions.View()
-            );
-        }
-        gpuAssert(cudaPeekAtLastError()); 
-        cudaDeviceSynchronize();
+                ProcessingTiled<T, OUT_TILE_DIM><<< tiledGridSize, tiledBlockSize, 
+                    (OUT_TILE_DIM * OUT_TILE_DIM * OUT_TILE_DIM) * (sizeof(float) + sizeof(Position)) >>>
+                    (
+                        k, devGrid.View(),  
+                        devSDF.View(), devPositions.View(), 
+                        appSDF.View(), appPositions.View() 
+                    ); 
 
-        devSDF = appSDF;
-        devPositions = appPositions;
-    } 
+            } else {  
+                ProcessingNaive<T><<< naiveGridSize, naiveBlockSize >>>(
+                    k, devGrid.View(), 
+                    devSDF.View(), devPositions.View(),
+                    appSDF.View(), appPositions.View()
+                );
+            }
+            gpuAssert(cudaPeekAtLastError()); 
+            cudaDeviceSynchronize();
+
+            devSDF = appSDF;
+            devPositions = appPositions;
+        } 
+    }
+
 
     {
         PROFILING_SCOPE("TiledJFA::Memory");
