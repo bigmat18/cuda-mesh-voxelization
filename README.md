@@ -74,42 +74,40 @@ For all available options:
 
 ## 4. Results
 
-<div style="text-align:center;">
-  <div style="display:inline-block; text-align:center; margin:5px; width:300px;">
-    <img src="images/snapshot04.png" alt="Voxel Grid" width="300"/><br>
-    <div style="text-align:center; margin-top:8px;">
-      <b>Stanford Armadillo</b> model generated with 64 voxels per side
-    </div>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:5px; width:300px;">
-    <img src="images/snapshot02.png" alt="SDF Output" width="300"/><br>
-    <div style="text-align:center; margin-top:8px;">
-      <b>Stanford Dragon</b> model generated with 256 voxels per side
-    </div>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:5px; width:300px;">
-    <img src="images/snapshot05.png" alt="Benchmark Chart" width="300"/><br>
-    <div style="text-align:center; margin-top:8px;">
-      <b>Stanford Bunny</b> model (opened), generated with 128 voxels per side
-    </div>
-  </div>
-</div>
+<div align="center">
+
+<table style="margin:0 auto;">
+  <tr>
+    <td align="center" width="340" style="padding:2px;">
+      <img src="images/snapshot04.png" alt="Voxel Grid" width="320"/><br>
+      <sub><b>Stanford Armadillo</b><br>64 voxels/side</sub>
+    </td>
+    <td align="center" width="340" style="padding:2px;">
+      <img src="images/snapshot02.png" alt="SDF Output" width="320"/><br>
+      <sub><b>Stanford Dragon</b><br>256 voxels/side</sub>
+    </td>
+    <td align="center" width="340" style="padding:2px;">
+      <img src="images/snapshot05.png" alt="Benchmark Chart" width="320"/><br>
+      <sub><b>Stanford Bunny</b><br>128 voxels/side</sub>
+    </td>
+  </tr>
+</table>
 
 <br>
 
-<div style="text-align:center;">
-  <div style="display:inline-block; text-align:center; margin:10px; vertical-align:top; width:400px;">
-    <img src="images/snapshot00.png" alt="Voxel Grid" width="350"/><br>
-    <div style="text-align:center; margin-top:8px;">
-      Section of the Stanford Armadillo model with 128 voxels, where each voxel is colored according to its signed distance function (SDF) value.
-    </div>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:10px; vertical-align:top; width:400px;">
-    <img src="images/snapshot01.png" alt="SDF Output" width="350"/><br>
-    <div style="text-align:center; margin-top:8px;">
-      Section of a CSG model obtained from the union of the Bimba and Stanford Bunny models. The model contains 64 voxels, each assigned a color based on its signed distance function (SDF) value.
-    </div>
-  </div>
+<table style="margin:0 auto;">
+  <tr>
+    <td align="center" width="400" style="padding:2px;">
+      <img src="images/snapshot00.png" alt="Voxel Grid" width="380"/><br>
+      <sub>Armadillo section (128 voxels), colored by SDF value.</sub>
+    </td>
+    <td align="center" width="400" style="padding:2px;">
+      <img src="images/snapshot01.png" alt="SDF Output" width="380"/><br>
+      <sub>CSG section (Bimba ∪ Bunny, 64 voxels), colored by SDF value.</sub>
+    </td>
+  </tr>
+</table>
+
 </div>
 
 ---
@@ -118,52 +116,59 @@ For all available options:
 
 ### Voxelization Performance Charts
 
-Comparison between a naive CUDA voxelization algorithm and a tiled CUDA implementation. Experiments were conducted on a machine equipped with four AMD EPYC 7301 16-Core Processors and an NVIDIA A30 GPU.
+<div align="center">
 
-<p align="center">
-  <div style="display:inline-block; text-align:center; margin:5px"> 
-    <img src="images/bunny_3510/bunny_3510_vox_comparison_no_memory_12.jpg" alt="Voxel Grid" width="300"/><br>
-        <sub>Stanford Bunny 3,510 faces</sub>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:5px">
-    <img src="images/bunny_56172/bunny_56172_vox_comparison_no_memory_12.jpg" alt="SDF Output" width="300"/><br>
-        <sub>Stanford Bunny 56,172 faces</sub>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:5px">
-    <img src="images/bunny_168516/bunny_168516_vox_comparison_no_memory_12.jpg" alt="Benchmark Chart" width="300"/><br>
-        <sub>Stanford Bunny 168,516 faces</sub>
-  </div>
-</p>
+<table>
+  <tr>
+    <td align="center" width="350">
+      <img src="images/bunny_3510/bunny_3510_vox_comparison_no_memory_12.jpg" width="350"/><br>
+      <sub>Bunny 3,510 faces</sub>
+    </td>
+    <td align="center" width="350">
+      <img src="images/bunny_56172/bunny_56172_vox_comparison_no_memory_12.jpg" width="350"/><br>
+      <sub>Bunny 56,172 faces</sub>
+    </td>
+    <td align="center" width="350">
+      <img src="images/bunny_168516/bunny_168516_vox_comparison_no_memory_12.jpg" width="350"/><br>
+      <sub>Bunny 168,516 faces</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="350">
+      <img src="images/bunny_337032/bunny_337032_vox_comparison_no_memory_12.jpg" width="350"/><br>
+      <sub>Bunny 337,032 faces</sub>
+    </td>
+    <td align="center" width="350">
+      <img src="images/bunny_674064/bunny_674064_vox_comparison_no_memory_12.jpg" width="350"/><br>
+      <sub>Bunny 674,064 faces</sub>
+    </td>
+    <td align="center" width="350">
+      <img src="images/bunny_1348128/bunny_1348128_vox_comparison_no_memory_12.jpg" width="350"/><br>
+      <sub>Bunny 1,348,128 faces</sub>
+    </td>
+  </tr>
+</table>
 
-<p align="center">
-  <div style="display:inline-block; text-align:center; margin:5px">
-    <img src="images/bunny_337032/bunny_337032_vox_comparison_no_memory_12.jpg" alt="Voxel Grid" width="300"/><br>
-        <sub>Stanford Bunny 337,032 faces</sub>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:5px">
-    <img src="images/bunny_674064/bunny_674064_vox_comparison_no_memory_12.jpg" alt="SDF Output" width="300"/><br>
-        <sub>Stanford Bunny 674,064 faces</sub>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:5px">
-    <img src="images/bunny_1348128/bunny_1348128_vox_comparison_no_memory_12.jpg" alt="Benchmark Chart" width="300"/><br>
-        <sub>Stanford Bunny 1,348,128 faces</sub>
-  </div>
-</p>
+</div>
 
 ### JFA Performance Charts
 
-Comparison between a naive CUDA JFA algorithm and an OpenMP CPU implementation. The algorithm is applied to a Stanford Bunny model with 168,516 faces. Experiments were conducted on a machine equipped with four AMD EPYC 7301 16-Core Processors and an NVIDIA A30 GPU.
+<div align="center">
 
-<p align="center">
-  <div style="display:inline-block; text-align:center; margin:5px">
-    <img src="images/bunny_1348128/bunny_1348128_jfa_comparison_no_memory_12.jpg" alt="Voxel Grid" width="350"/><br>
-            <sub>Comparison chart of the different implementations.</sub>
-  </div>
-  <div style="display:inline-block; text-align:center; margin:5px">
-    <img src="images/bunny_1348128/bunny_1348128_jfa_bar_diagram_no_memory_12.jpg" alt="Voxel Grid" width="400"/><br>
-            <sub>Comparison chart of the different stages of the implementation.</sub>
-  </div>
-</p>
+<table style="margin:0 auto;">
+  <tr>
+    <td align="center" width="400" style="padding:2px;">
+      <img src="images/bunny_1348128/bunny_1348128_jfa_comparison_no_memory_12.jpg" width="330"/><br>
+      <sub>Implementations comparison</sub>
+    </td>
+    <td align="center" width="440">
+      <img src="images/bunny_1348128/bunny_1348128_jfa_bar_diagram_no_memory_12.jpg" width="440"/><br>
+      <sub>Stages comparison</sub>
+    </td>
+  </tr>
+</table>
+
+</div>
 
 ---
 
