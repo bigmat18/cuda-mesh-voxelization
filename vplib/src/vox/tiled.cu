@@ -269,12 +269,14 @@ __global__ void CalculateNumOverlapPerTriangle(const size_t numTriangles,
     std::pair<float, float> BB_X, BB_Y, BB_Z;
     CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
+    // Use tiles of 4x4 voxels for faster overlap test
     const float tileSize = grid.VoxelSize() * 4;
     int startY = static_cast<int>(std::floor((BB_Y.first - grid.OriginY()) / tileSize));
     int endY   = static_cast<int>(std::ceil((BB_Y.second - grid.OriginY()) / tileSize));
     int startZ = static_cast<int>(std::floor((BB_Z.first - grid.OriginZ()) / tileSize));
     int endZ   = static_cast<int>(std::ceil((BB_Z.second - grid.OriginZ()) / tileSize));
 
+    // Precompute edge normals for triangle
     Normal N0 = CalculateNormalZY(V0, V1) * sign;
     Normal N1 = CalculateNormalZY(V1, V2) * sign;
     Normal N2 = CalculateNormalZY(V2, V0) * sign;
@@ -289,6 +291,7 @@ __global__ void CalculateNumOverlapPerTriangle(const size_t numTriangles,
             float maxY = minY + tileSize;
             float maxZ = minZ + tileSize;
 
+            // Test tile corner based on edge normal direction
             float E0 = CalculateEdgeFunctionZY(V0, V1, N0.Y >= 0 ? minY : maxY, N0.Z >= 0 ? minZ : maxZ) * sign;
             float E1 = CalculateEdgeFunctionZY(V1, V2, N1.Y >= 0 ? minY : maxY, N1.Z >= 0 ? minZ : maxZ) * sign;
             float E2 = CalculateEdgeFunctionZY(V2, V0, N2.Y >= 0 ? minY : maxY, N2.Z >= 0 ? minZ : maxZ) * sign;
@@ -327,6 +330,7 @@ __global__ void WorkQueuePopulation(const size_t numTriangles,
     std::pair<float, float> BB_X, BB_Y, BB_Z;
     CalculateBoundingBox(std::span<Position>(&facesVertices[0], 3), BB_X, BB_Y, BB_Z);
 
+    // Use tiles of 4x4 voxels
     const float tileSize = grid.VoxelSize() * 4;
     const uint tilePerSide = grid.VoxelsPerSide() / 4;
 
@@ -335,6 +339,7 @@ __global__ void WorkQueuePopulation(const size_t numTriangles,
     int startZ = static_cast<int>(std::floor((BB_Z.first - grid.OriginZ()) / tileSize));
     int endZ   = static_cast<int>(std::ceil((BB_Z.second - grid.OriginZ()) / tileSize));
 
+    // Precompute edge normals for triangle
     Position N0 = CalculateNormalZY(V0, V1) * sign;
     Position N1 = CalculateNormalZY(V1, V2) * sign;
     Position N2 = CalculateNormalZY(V2, V0) * sign;
@@ -349,11 +354,13 @@ __global__ void WorkQueuePopulation(const size_t numTriangles,
             float maxY = minY + tileSize;
             float maxZ = minZ + tileSize;
 
+            // Test tile corner based on edge normal direction
             float E0 = CalculateEdgeFunctionZY(V0, V1, N0.Y > 0 ? minY : maxY, N0.Z > 0 ? minZ : maxZ) * sign;
             float E1 = CalculateEdgeFunctionZY(V1, V2, N1.Y > 0 ? minY : maxY, N1.Z > 0 ? minZ : maxZ) * sign;
             float E2 = CalculateEdgeFunctionZY(V2, V0, N2.Y > 0 ? minY : maxY, N2.Z > 0 ? minZ : maxZ) * sign;
 
             if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
+                // Store tile index and triangle index in work queue
                 workQueueKeys[offsets[triangleIndex] + numOverlap] = (y * tilePerSide) + z;
                 workQueueValues[offsets[triangleIndex] + numOverlap] = triangleIndex;
                 numOverlap++;
@@ -372,30 +379,39 @@ __global__ void TiledProcessing(const int BATCH_SIZE,
                                 const uint32_t* activeTilesListOffset, 
                                 VoxelsGrid<T, true> grid)
 {
+    // Shared memory for batched triangle vertices
     extern __shared__ Position sharedVertices[];
 
+    // Each block processes one active tile
     const int activeTileIndex = blockIdx.x;
+    // Each thread processes one voxel in the tile
     const int voxelIndex = threadIdx.x;
 
+    // Get triangle count and offset for this tile
     const int numTriangles = activeTilesListTriangleCount[activeTileIndex];     
     const int tileOffset = activeTilesListOffset[activeTileIndex];
     const int tileIndex = activeTilesList[activeTileIndex];
 
+    // Decode tile coordinates (Y, Z) from tile index
     int tileZ = tileIndex % (grid.VoxelsPerSide() / 4);
     int tileY = tileIndex / (grid.VoxelsPerSide() / 4);
 
+    // Decode voxel coordinates within the tile
     int voxelZ = (voxelIndex % 16) % 4;
     int voxelY = (voxelIndex % 16) / 4;
 
+    // Compute global voxel coordinates
     int z = (tileZ * 4) + voxelZ;
     int y = (tileY * 4) + voxelY;
 
+    // Compute voxel center position
     float centerZ = grid.OriginZ() + (z * grid.VoxelSize()) + (grid.VoxelSize() / 2);
     float centerY = grid.OriginY() + (y * grid.VoxelSize()) + (grid.VoxelSize() / 2);
 
-
+    // Process triangles in batches for shared memory efficiency
     for(int batch = 0; batch < numTriangles; batch += BATCH_SIZE)
     {
+        // Load triangle vertices into shared memory (batched)
         for(int i = voxelIndex; i < BATCH_SIZE * 3 && i < (numTriangles - batch) * 3; i+=blockDim.x)
         {
             const int posVertex = (i / 3);
@@ -419,44 +435,46 @@ __global__ void TiledProcessing(const int BATCH_SIZE,
 
         __syncthreads();
 
+        // Divide batch triangles among threads
         int sharedSize = min(BATCH_SIZE, numTriangles - batch);
         int voxelHalf = voxelIndex / 16;
         int startTriangle = voxelHalf * (sharedSize / (blockDim.x / 16));
         int endTriangle = (sharedSize * (voxelHalf + 1)) / (blockDim.x / 16);
 
-
+        // Each thread processes its assigned triangles
         for(int triangle = startTriangle; triangle < endTriangle; triangle++)
         {         
             Position V0 = sharedVertices[(triangle * 3)];
             Position V1 = sharedVertices[(triangle * 3) + 1];
             Position V2 = sharedVertices[(triangle * 3) + 2];
 
+            // Compute face normal and orientation
             Normal normal = CalculateFaceNormal(V0, V1, V2);
             int sign = 2 * (normal.X >= 0) - 1;
 
+            // Test if voxel center is inside triangle projection (YZ plane)
             float E0 = CalculateEdgeFunctionZY(V0, V1, centerY, centerZ) * sign;
             float E1 = CalculateEdgeFunctionZY(V1, V2, centerY, centerZ) * sign;
             float E2 = CalculateEdgeFunctionZY(V2, V0, centerY, centerZ) * sign;
 
             if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
+                // Compute plane intersection for X coordinate
                 Position edge0 = V1 - V0;
                 Position edge1 = V2 - V0;
-
                 auto [A, B, C] = Position::Cross(edge0, edge1);   
-
                 float D = Position::Dot({A, B, C}, V0);
                 float intersection = ((D - (B * centerY) - (C * centerZ)) / A);
 
                 int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
                 int endX = grid.VoxelsPerSide();
 
+                // Set bits in voxel grid along X direction
                 for(int x = (startX / grid.WordSize()) * grid.WordSize(); x < endX; x+=grid.WordSize())
                 {
                     T newWord = 0;
                     for(int bit = startX % grid.WordSize(); bit < grid.WordSize(); ++bit) {
                         newWord |= (1 << bit);
                     }
-                    // grid.Word(x, y, z) ^= newWord;
                     atomicXor(&grid.Word(x, y, z), newWord);
 
                     startX = 0;
@@ -466,7 +484,6 @@ __global__ void TiledProcessing(const int BATCH_SIZE,
         __syncthreads();
     }
 }
-
 
 template<Types type, typename T>
 void Compute<Types::TILED, T>(const size_t blockSize, HostVoxelsGrid<T>& grid, const Mesh& mesh)
@@ -535,10 +552,6 @@ void Compute<Types::TILED, T>(const size_t blockSize, HostVoxelsGrid<T>& grid, c
 
     {
         PROFILING_SCOPE("TiledVox::Processing");
-
-        //cudaDeviceProp prop;
-        //cudaGetDeviceProperties(&prop, 0);
-        //const size_t maxSMEM = prop.sharedMemPerBlock / (sizeof(Position) * 3);
         const int defaultSize = 14;
 
         TiledProcessing<T><<< numActiveTiles, blockSize, defaultSize * 3 * sizeof(Position) >>>(
@@ -609,117 +622,3 @@ template void Compute<Types::TILED, uint64_t>
 (const size_t, HostVoxelsGrid<uint64_t>&, const Mesh&); 
 
 }
-
-
-// ========================== TEST TiledProcessing ==========================
-//template <typename T, int BATCH_SIZE>
-//__global__ void TiledProcessing(const uint32_t numActiveTiles, 
-                                //const uint32_t* triangleCoords, 
-                                //const Position* coords, 
-                                //const uint32_t* workQueue, 
-                                //const uint32_t* activeTilesList, 
-                                //const uint32_t* activeTilesListTriangleCount,
-                                //const uint32_t* activeTilesListOffset, 
-                                //VoxelsGrid<T, true> grid)
-//{
-    //__shared__ Position smem[BATCH_SIZE * 3 * 2];
-
-    //Position* sharedVertices = &smem[0];
-    //int activeTileIndex = blockIdx.x;
-    //int voxelIndex = threadIdx.x;
-
-    //if (voxelIndex >= 16) {
-        //sharedVertices = &smem[BATCH_SIZE * 3];
-        //activeTileIndex = gridDim.x + blockIdx.x;    
-        //voxelIndex = threadIdx.x % 16;
-    //}
-
-    //if(activeTileIndex >= numActiveTiles)
-        //return;
-
-    //const int numTriangles = activeTilesListTriangleCount[activeTileIndex];     
-    //const int tileOffset = activeTilesListOffset[activeTileIndex];
-    //const int tileIndex = activeTilesList[activeTileIndex];
-
-    //int tileZ = tileIndex % (grid.VoxelsPerSide() / 4);
-    //int tileY = tileIndex / (grid.VoxelsPerSide() / 4);
-
-    //int voxelZ = (voxelIndex % 16) % 4;
-    //int voxelY = (voxelIndex % 16) / 4;
-
-    //int z = (tileZ * 4) + voxelZ;
-    //int y = (tileY * 4) + voxelY;
-
-    //float centerZ = grid.OriginZ() + (z * grid.VoxelSize()) + (grid.VoxelSize() / 2);
-    //float centerY = grid.OriginY() + (y * grid.VoxelSize()) + (grid.VoxelSize() / 2);
-
-
-    //for(int batch = 0; batch < numTriangles; batch += BATCH_SIZE)
-    //{
-        //for(int i = voxelIndex; i < BATCH_SIZE * 3 && i < (numTriangles - batch) * 3; i+=16)
-        //{
-            //const int posVertex = (i / 3);
-            //const int posCoord = (i % 3);
-            //const int indexV = triangleCoords[(workQueue[(tileOffset + posVertex + batch)] * 3) + posCoord];
-
-            //sharedVertices[(posVertex * 3) + (posCoord)] = coords[indexV];
-        //}
-
-        //// ================ OLD VERSION ========================
-        ////if (voxelIndex < BATCH_SIZE && (voxelIndex + batch) < numTriangles) {
-            ////const int indexV0 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3)];
-            ////const int indexV1 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3) + 1];
-            ////const int indexV2 = triangleCoords[(workQueue[(tileOffset + voxelIndex + batch)] * 3) + 2];
-
-            ////sharedVertices[(voxelIndex * 3)]     = coords[indexV0];
-            ////sharedVertices[(voxelIndex * 3) + 1] = coords[indexV1];
-            ////sharedVertices[(voxelIndex * 3) + 2] = coords[indexV2];
-        ////}
-        //// ================ OLD VERSION ========================
-
-        //__syncthreads();
-
-        //int sharedSize = min(BATCH_SIZE, numTriangles - batch);
-
-        //for(int triangle = 0; triangle < sharedSize; triangle++)
-        //{         
-            //Position V0 = sharedVertices[(triangle * 3)];
-            //Position V1 = sharedVertices[(triangle * 3) + 1];
-            //Position V2 = sharedVertices[(triangle * 3) + 2];
-
-            //Normal normal = CalculateFaceNormal(V0, V1, V2);
-            //int sign = 2 * (normal.X >= 0) - 1;
-
-            //float E0 = CalculateEdgeFunctionZY(V0, V1, centerY, centerZ) * sign;
-            //float E1 = CalculateEdgeFunctionZY(V1, V2, centerY, centerZ) * sign;
-            //float E2 = CalculateEdgeFunctionZY(V2, V0, centerY, centerZ) * sign;
-
-            //if (E0 >= 0 && E1 >= 0 && E2 >= 0) {
-                //Position edge0 = V1 - V0;
-                //Position edge1 = V2 - V0;
-
-                //auto [A, B, C] = Position::Cross(edge0, edge1);   
-
-                //float D = Position::Dot({A, B, C}, V0);
-                //float intersection = ((D - (B * centerY) - (C * centerZ)) / A);
-
-                //int startX = static_cast<int>((intersection - grid.OriginX()) / grid.VoxelSize());
-                //int endX = grid.VoxelsPerSide();
-
-                //for(int x = (startX / grid.WordSize()) * grid.WordSize(); x < endX; x+=grid.WordSize())
-                //{       
-                    //T newWord = 0;
-                    //for(int bit = startX % grid.WordSize(); bit < grid.WordSize(); ++bit) {
-                        //newWord |= (1 << bit);
-                    //}
-                    ////grid.Word(x, y, z) ^= newWord;
-                    //atomicXor(&grid.Word(x, y, z), newWord);
-                    //startX = 0;
-                //}
-            //}
-        //} 
-        //__syncthreads();
-    //}
-//}
-// ========================== TEST TiledProcessing ==========================
-

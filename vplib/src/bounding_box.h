@@ -9,6 +9,16 @@
 #ifndef BOUNDING_BOX_H
 #define BOUNDING_BOX_H
 
+/**
+ * Calculates the axis-aligned bounding box for a set of 3D positions.
+ *
+ * @tparam device If true, runs on GPU (__device__), otherwise on CPU (__host__).
+ * @param coordinates Span of 3D positions to process.
+ * @param minmaxX Optional output: stores {minX, maxX} if provided.
+ * @param minmaxY Optional output: stores {minY, maxY} if provided.
+ * @param minmaxZ Optional output: stores {minZ, maxZ} if provided.
+ * @return The largest side length of the bounding box.
+ */
 template<bool device = false> __host__ __device__
 float CalculateBoundingBox(std::span<Position> coordinates,
                            std::optional<std::reference_wrapper<std::pair<float, float>>> minmaxX = std::nullopt,

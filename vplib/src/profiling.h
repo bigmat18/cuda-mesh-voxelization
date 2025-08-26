@@ -5,8 +5,6 @@
 #include <cstdio>
 #include <string>
 
-#if PROFILING
-
 class Profiling 
 {
     std::string mMsg;
@@ -14,7 +12,7 @@ class Profiling
 
 public:
     Profiling(const std::string msg = "")
-        : mMsg(msg), mStart(std::chrono::high_resolution_clock::now()) {}
+    : mMsg(msg), mStart(std::chrono::high_resolution_clock::now()) {}
 
     ~Profiling()
     {
@@ -27,11 +25,11 @@ public:
     }
 };
 
-
+#if PROFILING
+    #define PROFILING_SCOPE(msg) Profiling timer##__LINE__(msg)
 #else
-#warning "Profiling is not active"
-class Profiling {};
+    #warning "Profiling is not active"
+    #define PROFILING_SCOPE(msg)
 #endif
 
-#define PROFILING_SCOPE(msg) Profiling timer##__LINE__(msg)
 #endif // !PROFILING_H

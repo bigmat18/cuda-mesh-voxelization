@@ -7,7 +7,6 @@ namespace CSG {
 template <typename T, typename func>
 __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> grid2, func Op)
 {
-
     const int numWord = grid1.Size() * grid1.WordSize();
     const int wordIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
     const int voxelIndex = wordIndex * grid1.WordSize();
@@ -15,13 +14,13 @@ __global__ void ProcessingNaive(VoxelsGrid<T, true> grid1, VoxelsGrid<T, true> g
     if(wordIndex >= numWord)
         return;
 
+    // Compute 3D coordinates from linear index
     const int z = voxelIndex / (grid1.VoxelsPerSide() * grid1.VoxelsPerSide());
     const int y = (voxelIndex % (grid1.VoxelsPerSide() * grid1.VoxelsPerSide())) / grid1.VoxelsPerSide();
     const int x = voxelIndex % grid1.VoxelsPerSide();
 
     Op(grid1.Word(x, y, z), grid2.Word(x, y, z));
 }
-
 
 
 template <Types type, typename T, typename func>

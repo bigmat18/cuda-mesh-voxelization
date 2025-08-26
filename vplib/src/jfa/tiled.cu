@@ -16,13 +16,15 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
 {
     static_assert(TILE_DIM % 2 != 0, "TILE_DIM must be odd");
 
-    constexpr int OUT_TILE_DIM = TILE_DIM + 2;
+    constexpr int OUT_TILE_DIM = TILE_DIM + 2; // Shared memory tile size (with border)
     constexpr int SMEM_DIM = OUT_TILE_DIM * OUT_TILE_DIM;
 
-    __shared__ T SMEM[OUT_TILE_DIM * 3];
+    __shared__ T SMEM[OUT_TILE_DIM * 3]; // 3 slices for sliding window
 
+    // Local grid in shared memory for fast access to tile and its neighbors
     VoxelsGrid<T, true> gridSMEM(&SMEM[0], grid.WordSize() * 3, OUT_TILE_DIM, OUT_TILE_DIM);
 
+    // Compute global voxel coordinates for this thread
     int voxelX = (blockIdx.x * (grid.WordSize() * TILE_DIM)) + threadIdx.x;
     int voxelY = (blockIdx.y * TILE_DIM) + threadIdx.y;
     int voxelZ = (blockIdx.z * TILE_DIM) + threadIdx.z;
@@ -31,12 +33,15 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
     if(voxelIndex >= grid.Size())
         return;
     
+    // Linear index for thread in block (used for shared memory loading)
     const int blockIndex = (threadIdx.z * blockDim.x * blockDim.y) + (threadIdx.y * blockDim.x) + threadIdx.x;
 
+    // Compute center of tile in global coordinates
     const int centerTileX = (blockIdx.x * blockDim.x * TILE_DIM);
     const int centerTileY = (blockIdx.y * blockDim.y) + (TILE_DIM / 2);
     const int centerTileZ = (blockIdx.z * blockDim.z) + (TILE_DIM / 2);
 
+    // Load left and center slices of the tile into shared memory
     if(blockIndex < SMEM_DIM) {
         int smemZ = (blockIndex % OUT_TILE_DIM);
         int smemY = (blockIndex / OUT_TILE_DIM);
@@ -44,6 +49,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
         int dz = -(OUT_TILE_DIM / 2) + smemZ;
         int dy = -(OUT_TILE_DIM / 2) + smemY;
 
+        // Load left slice
         int x = centerTileX - grid.WordSize(); 
         int y = centerTileY + dy;    
         int z = centerTileZ + dz;
@@ -54,6 +60,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
             gridSMEM.Word(0, smemY, smemZ) = 0;
         }
 
+        // Load center slice
         x = centerTileX;
         if(z >= 0 && z < grid.VoxelsPerSide() && y >= 0 && y < grid.VoxelsPerSide() && x >= 0 && x < grid.VoxelsPerSide()) {
             gridSMEM.Word(grid.WordSize(), smemY, smemZ) = grid.Word(x, y, z);
@@ -62,8 +69,10 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
         }
     }
 
+    // Slide through the tile along X axis
     for(int depth = 0; depth < TILE_DIM; ++depth) {
 
+        // Load right slice into shared memory for current depth
         if(blockIndex < SMEM_DIM) {
             int smemZ = (blockIndex % OUT_TILE_DIM);
             int smemY = (blockIndex / OUT_TILE_DIM);
@@ -84,12 +93,13 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
 
         __syncthreads();    
 
+        // Compute local coordinates in shared memory for current voxel
         int voxelX = (blockIdx.x * (grid.WordSize() * TILE_DIM)) + (depth * grid.WordSize()) + threadIdx.x;
-        
         int tileX = grid.WordSize() + threadIdx.x;
         int tileY = (OUT_TILE_DIM / 2) + (threadIdx.y - (blockDim.y / 2));
         int tileZ = (OUT_TILE_DIM / 2) + (threadIdx.z - (blockDim.z / 2));    
 
+        // If current voxel is set, check 26-neighborhood for boundary
         if(gridSMEM.Voxel(tileX, tileY, tileZ)) {
             bool found = false;
             Position pos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
@@ -106,6 +116,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
                         int ny = tileY + y;
                         int nz = tileZ + z;
 
+                        // If any neighbor is not set, mark as boundary
                         if (!gridSMEM.Voxel(nx, ny, nz)) {  
                             found = true;
                         }
@@ -113,6 +124,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
                 }
             }
 
+            // Write SDF and position for boundary voxels
             if(found) {
                 sdf(voxelX, voxelY, voxelZ) = 0.0f;
                 positions(voxelX, voxelY, voxelZ) = pos;
@@ -123,6 +135,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
 
         __syncthreads();
 
+        // Shift slices in shared memory for next iteration (left <- center, center <- right)
         if(blockIndex < SMEM_DIM) { 
             int smemZ = (blockIndex % OUT_TILE_DIM);
             int smemY = (blockIndex / OUT_TILE_DIM);
@@ -133,12 +146,12 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
     }
 }
 
-
 template <typename T, int TILE_DIM>
 __global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
                                 const Grid<float> inSDF, const Grid<Position> inPositions,
                                 Grid<float> outSDF, Grid<Position> outPositions) 
 {
+    // Shared memory for SDF and position tiles (with K border)
     extern __shared__ unsigned char smem[];
     const int OUT_TILE_DIM = TILE_DIM;
     const int IN_TILE_DIM = OUT_TILE_DIM - (K * 2);
@@ -146,6 +159,7 @@ __global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
     Grid<float> sdfSMEM = Grid<float>((float*)smem, OUT_TILE_DIM);
     Grid<Position> positionSMEM = Grid<Position>((Position*)(smem + (sdfSMEM.Size() * sizeof(float))), OUT_TILE_DIM);
 
+    // Load SDF and position data into shared memory (with border)
     for(int i = threadIdx.x; i < sdfSMEM.Size(); i+= blockDim.x) { 
         int smemZ = i / (sdfSMEM.SizeX() * sdfSMEM.SizeX());
         int smemY = (i % (sdfSMEM.SizeX() * sdfSMEM.SizeX())) / sdfSMEM.SizeX();
@@ -165,9 +179,11 @@ __global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
     
     __syncthreads();
 
+    // Only threads inside the inner tile proceed
     if(threadIdx.x >= IN_TILE_DIM * IN_TILE_DIM * IN_TILE_DIM) 
         return;
 
+    // Compute local and global coordinates for the voxel
     int smemZ = threadIdx.x / (IN_TILE_DIM * IN_TILE_DIM);
     int smemY = (threadIdx.x % (IN_TILE_DIM * IN_TILE_DIM)) / IN_TILE_DIM;
     int smemX = threadIdx.x % IN_TILE_DIM;
@@ -176,6 +192,7 @@ __global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
     int globalY = (blockIdx.y * IN_TILE_DIM) + smemY;
     int globalZ = (blockIdx.z * IN_TILE_DIM) + smemZ;
 
+    // Shift to shared memory coordinates (with border)
     smemX += K;
     smemY += K;
     smemZ += K;
@@ -183,10 +200,12 @@ __global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
     if(globalX >= inSDF.SizeX() || globalY >= inSDF.SizeY() || globalZ >= inSDF.SizeZ())
         return;
 
+    // Compute world position of the current voxel
     Position voxelPos = Position(grid.OriginX() + (globalX * grid.VoxelSize()),
                                  grid.OriginY() + (globalY * grid.VoxelSize()),
                                  grid.OriginZ() + (globalZ * grid.VoxelSize()));
  
+    // Find closest boundary in 26-neighborhood (stride K)
     bool findNewBest = false;
     float bestDistance = sdfSMEM(smemX, smemY, smemZ);
     Position bestPosition;
@@ -215,6 +234,7 @@ __global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
         }
     }
 
+    // Write result if a better boundary was found
     if (findNewBest) {
         outSDF(globalX, globalY, globalZ) = bestDistance;
         outPositions(globalX, globalY, globalZ) = bestPosition;

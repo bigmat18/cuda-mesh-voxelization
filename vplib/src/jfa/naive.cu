@@ -18,6 +18,7 @@ __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> 
     if(voxelIndex >= grid.Size())
         return;
 
+    // Compute 3D coordinates from linear index
     const int voxelZ = voxelIndex / (grid.VoxelsPerSide() * grid.VoxelsPerSide());
     const int voxelY = (voxelIndex % (grid.VoxelsPerSide() * grid.VoxelsPerSide())) / grid.VoxelsPerSide();
     const int voxelX = voxelIndex % grid.VoxelsPerSide();
@@ -25,12 +26,12 @@ __global__ void InizializationNaive(const VoxelsGrid<T, true> grid, Grid<float> 
     if(!grid.Voxel(voxelX, voxelY, voxelZ))
         return;
 
-
     bool found = false;
     Position pos = Position(grid.OriginX() + (voxelX * grid.VoxelSize()),
                             grid.OriginY() + (voxelY * grid.VoxelSize()),
                             grid.OriginZ() + (voxelZ * grid.VoxelSize()));
 
+    // Check 26-neighborhood for boundary
     for(int z = -1; z <= 1; z++) {
         for(int y = -1; y <= 1; y++) {
             for(int x = -1; x <= 1; x++) {
@@ -68,6 +69,7 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
     if(voxelIndex >= grid.Size())
         return;
 
+    // Compute 3D coordinates from linear index
     const int voxelZ = voxelIndex / (grid.VoxelsPerSide() * grid.VoxelsPerSide());
     const int voxelY = (voxelIndex % (grid.VoxelsPerSide() * grid.VoxelsPerSide())) / grid.VoxelsPerSide();
     const int voxelX = voxelIndex % grid.VoxelsPerSide();
@@ -79,6 +81,7 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
     bool findNewBest = false;
     float bestDistance = inSDF(voxelX, voxelY, voxelZ);
     Position bestPosition;
+    // Search K-neighborhood for better SDF value
     for(int z = -1; z <= 1; z++) {
         for(int y = -1; y <= 1; y++) {
             for(int x = -1; x <= 1; x++) {

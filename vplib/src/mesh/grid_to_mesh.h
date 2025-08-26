@@ -121,14 +121,39 @@ inline void AddFacesVertexYZ(float voxelX, float voxelY, float voxelZ,
     );
 }
 
-
+/**
+ * @brief Converts a voxel grid to a compressed mesh representation.
+ * 
+ * @tparam T Voxel data type.
+ * @param grid Reference to the input voxel grid.
+ * @param mesh Reference to the output mesh (compressed).
+ * @return true if conversion was successful, false otherwise.
+ */
 template <typename T>
 bool VoxelsGridToMeshCompressed(const VoxelsGrid<T>& grid, Mesh& mesh); 
 
+/**
+ * @brief Converts a voxel grid and color grid to a mesh representation.
+ * 
+ * @tparam T Voxel data type.
+ * @param grid Reference to the input voxel grid.
+ * @param colors Reference to the grid containing per-voxel color information.
+ * @param mesh Reference to the output mesh.
+ * @return true if conversion was successful, false otherwise.
+ */
 template <typename T>
 bool VoxelsGridToMesh(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh); 
 
+/**
+ * @brief Converts a voxel grid and color grid to a point cloud mesh.
+ * 
+ * @tparam T Voxel data type.
+ * @param grid Reference to the input voxel grid.
+ * @param colors Reference to the grid containing per-voxel color information.
+ * @param mesh Reference to the output mesh (point cloud).
+ * @return true if conversion was successful, false otherwise.
+ */
 template <typename T>
-bool VoxelsGridToPointCloud(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh); 
+bool VoxelsGridToPointCloud(const VoxelsGrid<T>& grid, const Grid<float>& colors, Mesh& mesh);
 
 #endif // !GRID_TO_MESH_H
