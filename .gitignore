@@ -2,7 +2,6 @@
 
 # Build output directories
 /build/
-/benchmarks/
 /bin/
 /tests/
 /obj/
