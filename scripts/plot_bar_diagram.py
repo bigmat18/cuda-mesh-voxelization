@@ -109,7 +109,6 @@ def plot_grouped_stacked_bars(
 
     plt.xlabel("ms")
     plt.ylabel("voxel grid size")
-    ax.set_title("Algorithm Parts Comparison")
     ax.grid(axis="x", ls="--", alpha=0.5)
 
     handles, labels = ax.get_legend_handles_labels()
@@ -156,7 +155,7 @@ def plot_grouped_stacked_bars(
 
     plt.subplots_adjust(right=0.75, bottom=0.1)
 
-    plt.savefig(output_pdf, format="pdf")
+    plt.savefig(output_pdf, format="jpg")
     plt.close()
     print(f"Saved plot: {output_pdf}")
 
@@ -173,9 +172,9 @@ def main():
     parser.add_argument("--ymax",type=int,default=None,help="Maximum value for the y-axis (size).")
     args = parser.parse_args()
 
-    output_dir = Path("plots")
+    output_dir = Path("images")
     output_dir.mkdir(exist_ok=True)
-    output_pdf = output_dir / args.output
+    output_pdf = output_dir / f"{args.output}.jpg"
 
     plot_grouped_stacked_bars(
         [Path(f) for f in args.csv_files],

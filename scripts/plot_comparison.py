@@ -79,7 +79,7 @@ def plot_algorithms_comparison(csv_files, output_pdf, subtract_labels=None):
             ax.set_yticks(ticks)
 
     plt.tight_layout()
-    plt.savefig(output_pdf, format="pdf")
+    plt.savefig(output_pdf, format="jpg")
     plt.close()
     print(f"Saved plot: {output_pdf}")
 
@@ -95,9 +95,9 @@ def main():
     )
     args = parser.parse_args()
 
-    output_dir = Path("plots")
+    output_dir = Path("images")
     output_dir.mkdir(exist_ok=True)
-    output_pdf = output_dir / args.output
+    output_pdf = output_dir / f"{args.output}.jpg"
 
     csv_files = [Path(f) for f in args.csv_files]
     plot_algorithms_comparison(csv_files, output_pdf, args.exclude_labels)
