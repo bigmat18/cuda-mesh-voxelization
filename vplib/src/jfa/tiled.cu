@@ -266,8 +266,7 @@ void Compute<Types::TILED, T>(HostVoxelsGrid<T>& grid, HostGrid<float>& sdf)
     {
         PROFILING_SCOPE("TiledJFA::Processing");
 
-        const int OUT_TILE_DIM = 14;
-
+        constexpr int OUT_TILE_DIM = TILE_DIM_PROC;
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);
         const size_t numVoxels = grid.View().Size();

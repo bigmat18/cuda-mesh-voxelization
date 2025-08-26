@@ -21,6 +21,8 @@ __host__ __device__ inline float CalculateDistance(Position p0, Position p1)
 
 
 constexpr int TILE_DIM_INIT = 3;
+constexpr int TILE_DIM_PROC = 14;
+
 template <typename T, int TILE_DIM = TILE_DIM_INIT>
 __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> sdf, Grid<Position> positions);
 
@@ -32,7 +34,7 @@ __global__ void ProcessingNaive(const int K, const VoxelsGrid<T, true> grid,
                                 const Grid<float> inSDF, const Grid<Position> inPositions,
                                 Grid<float> outSDF, Grid<Position> outPositions);
 
-template <typename T, int TILE_DIM = 14>
+template <typename T, int TILE_DIM = TILE_DIM_PROC>
 __global__ void ProcessingTiled(const int K, const VoxelsGrid<T, true> grid,
                                 const Grid<float> inSDF, const Grid<Position> inPositions,
                                 Grid<float> outSDF, Grid<Position> outPositions);
