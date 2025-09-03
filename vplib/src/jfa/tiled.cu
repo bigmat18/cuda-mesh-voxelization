@@ -19,7 +19,7 @@ __global__ void InizializationTiled(const VoxelsGrid<T, true> grid, Grid<float> 
     constexpr int OUT_TILE_DIM = TILE_DIM + 2; // Shared memory tile size (with border)
     constexpr int SMEM_DIM = OUT_TILE_DIM * OUT_TILE_DIM;
 
-    __shared__ T SMEM[OUT_TILE_DIM * 3]; // 3 slices for sliding window
+    __shared__ T SMEM[SMEM_DIM * 3]; // 3 slices for sliding window
 
     // Local grid in shared memory for fast access to tile and its neighbors
     VoxelsGrid<T, true> gridSMEM(&SMEM[0], grid.WordSize() * 3, OUT_TILE_DIM, OUT_TILE_DIM);
