@@ -99,8 +99,8 @@ For all available options:
 
 <table>
   <tr>
-    <td width="48%"><img src="images/snapshot00.png" width="100%"/></td>
     <td width="48%"><img src="images/snapshot01.png" width="100%"/></td>
+    <td width="48%"><img src="images/snapshot00.png" width="100%"/></td>
   </tr>
   <tr>
     <td width="48%">
