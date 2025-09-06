@@ -76,38 +76,41 @@ For all available options:
 
 <div align="center">
 
-<table style="margin:0 auto;">
+<table>
   <tr>
-    <td align="center" width="340" style="padding:2px;">
-      <img src="images/snapshot04.png" alt="Voxel Grid" width="320"/><br>
-      <sub><b>Stanford Armadillo</b><br>64 voxels/side</sub>
+    <td width="33%"><img src="images/snapshot04.png" width="100%"/></td>
+    <td width="33%"><img src="images/snapshot02.png" width="100%"/></td>
+    <td width="33%"><img src="images/snapshot05.png" width="100%"/></td>
+  </tr>
+  <tr>
+    <td width="33%">
+      <b>Stanford Armadillo</b><br>64 voxels/side
     </td>
-    <td align="center" width="340" style="padding:2px;">
-      <img src="images/snapshot02.png" alt="SDF Output" width="320"/><br>
-      <sub><b>Stanford Dragon</b><br>256 voxels/side</sub>
+    <td width="33%">
+      <b>Stanford Dragon</b><br>256 voxels/side
     </td>
-    <td align="center" width="340" style="padding:2px;">
-      <img src="images/snapshot05.png" alt="Benchmark Chart" width="320"/><br>
-      <sub><b>Stanford Bunny</b><br>128 voxels/side</sub>
+    <td width="33%">
+      <b>Stanford Bunny</b><br>128 voxels/side
     </td>
   </tr>
 </table>
 
 <br>
 
-<table style="margin:0 auto;">
+<table>
   <tr>
-    <td align="center" width="400" style="padding:2px;">
-      <img src="images/snapshot00.png" alt="Voxel Grid" width="380"/><br>
-      <sub>Armadillo section (128 voxels), colored by SDF value.</sub>
+    <td width="48%"><img src="images/snapshot00.png" width="100%"/></td>
+    <td width="48%"><img src="images/snapshot01.png" width="100%"/></td>
+  </tr>
+  <tr>
+    <td width="48%">
+      Armadillo section (128 voxels), colored by SDF value.
     </td>
-    <td align="center" width="400" style="padding:2px;">
-      <img src="images/snapshot01.png" alt="SDF Output" width="380"/><br>
-      <sub>CSG section (Bimba ∪ Bunny, 64 voxels), colored by SDF value.</sub>
+    <td width="48%">
+      CSG section (Bimba ∪ Bunny, 64 voxels), colored by SDF value.
     </td>
   </tr>
 </table>
-
 </div>
 
 ---
