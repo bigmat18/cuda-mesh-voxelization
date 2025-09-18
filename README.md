@@ -172,11 +172,3 @@ For all available options:
 </table>
 
 </div>
-
----
-
-## 6. References
-
-- [Fast Parallel Surface and Solid Voxelization on GPUs by Michael Schwarz and Hans-Peter Seidel (2010)](https://michael-schwarz.com/research/publ/files/vox-siga10.pdf)
-- [Out-of-Core Construction of Sparse Voxel Octrees](https://graphics.cs.kuleuven.be/publications/BLD14OCCSVO)
-- [Jump Flooding in GPU with Applications to Voronoi Diagram and Distance Transform](https://www.comp.nus.edu.sg/~tants/jfa/i3d06.pdf)
