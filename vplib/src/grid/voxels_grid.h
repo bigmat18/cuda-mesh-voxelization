@@ -15,7 +15,7 @@
 #include <debug_utils.h>
 #include <grid/grid.h>
 
-template <typename T, typename... Ts> __device__
+template <typename T, typename... Ts>
 constexpr bool is_one_of_v = (std::is_same_v<T, Ts> || ...);
 
 template <typename T>
