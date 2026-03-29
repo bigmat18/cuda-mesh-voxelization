@@ -2,8 +2,7 @@
 
 ## 1. Introduction
 
-**CUDA Mesh Voxelization** is a C++/CUDA library and CLI for 3D mesh voxelization, CSG operations, and Signed Distance Field (SDF) computation on the GPU.  
-The project is designed for benchmarking, visualization, and manipulation of volumetric 3D data, with a particular focus on performance and extensibility.
+**CUDA Mesh Voxelization** is a C++/CUDA library and CLI for 3D mesh voxelization, CSG operations, and Signed Distance Field (SDF) computation on the GPU. The project is designed for benchmarking, visualization, and manipulation of volumetric 3D data, with a particular focus on performance and extensibility.
 
 ### Features
 
@@ -13,8 +12,6 @@ The project is designed for benchmarking, visualization, and manipulation of vol
 - **CLI Application:** Command-line interface for batch processing and benchmarking.
 - **Benchmarking:** Comparative analysis between sequential, OpenMP, and CUDA implementations.
 - **Visualization:** Exports voxel grids for analysis and plotting.
-
----
 
 ## 2. Papers, Libraries, and Requirements
 
@@ -43,7 +40,7 @@ The project is designed for benchmarking, visualization, and manipulation of vol
 ### Installation
 
 ```bash
-git clone https://github.com/<your-username>/cuda-mesh-voxelization.git
+git clone https://github.com/bigmat18/cuda-mesh-voxelization.git
 cd cuda-mesh-voxelization
 git submodule update --init --recursive
 cmake -S . -B build
@@ -83,19 +80,17 @@ For all available options:
     <td width="33%"><img src="images/snapshot05.png" width="100%"/></td>
   </tr>
   <tr>
-    <td width="33%">
+    <td align="center" width="33%">
       <b>Stanford Armadillo</b><br>64 voxels/side
     </td>
-    <td width="33%">
+    <td align="center" width="33%">
       <b>Stanford Dragon</b><br>256 voxels/side
     </td>
-    <td width="33%">
+    <td align="center" width="33%">
       <b>Stanford Bunny</b><br>128 voxels/side
     </td>
   </tr>
 </table>
-
-<br>
 
 <table>
   <tr>
@@ -103,17 +98,16 @@ For all available options:
     <td width="48%"><img src="images/snapshot00.png" width="100%"/></td>
   </tr>
   <tr>
-    <td width="48%">
+    <td align="center" width="48%">
       Armadillo section (128 voxels), colored by SDF value.
     </td>
-    <td width="48%">
+    <td align="center" width="48%">
       CSG section (Bimba ∪ Bunny, 64 voxels), colored by SDF value.
     </td>
   </tr>
 </table>
 </div>
 
----
 
 ## 5. Benchmark and Performance Analysis
 
