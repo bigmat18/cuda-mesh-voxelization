@@ -75,9 +75,9 @@ For all available options:
 
 <table>
   <tr>
-    <td width="33%"><img src="images/snapshot04.png" width="100%"/></td>
-    <td width="33%"><img src="images/snapshot02.png" width="100%"/></td>
-    <td width="33%"><img src="images/snapshot05.png" width="100%"/></td>
+    <td align="center" width="33%"><img src="images/snapshot04.png" width="200"/></td>
+    <td align="center" width="33%"><img src="images/snapshot02.png" width="250"/></td>
+    <td align="center" width="33%"><img src="images/snapshot05.png" width="200"/></td>
   </tr>
   <tr>
     <td align="center" width="33%">
@@ -94,8 +94,8 @@ For all available options:
 
 <table>
   <tr>
-    <td width="48%"><img src="images/snapshot01.png" width="100%"/></td>
-    <td width="48%"><img src="images/snapshot00.png" width="100%"/></td>
+    <td align="center" width="48%"><img src="images/snapshot01.png" width="230"/></td>
+    <td align="center" width="48%"><img src="images/snapshot00.png" width="250"/></td>
   </tr>
   <tr>
     <td align="center" width="48%">
